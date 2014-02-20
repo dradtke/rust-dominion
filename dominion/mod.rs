@@ -6,6 +6,7 @@ use std::util;
 
 pub mod card;
 pub mod error;
+pub mod strat;
 
 macro_rules! unwrap_or_err(
     ($val:expr, $err:expr) => ({
@@ -17,22 +18,32 @@ macro_rules! unwrap_or_err(
     });
 )
 
-// play() is the entry point for a new game. It should be passed a
+// play() is the entry point for a game. It should be passed a
 // list of Player references, and does a couple things. First it
 // creates a new supply pile, sticks it in a RWArc and gives each
 // player a reference to it. Then it loops forever until the game
 // has ended, playing each player in turn.
 pub fn play(players: &mut [Player]) {
-    let mut supply = HashMap::new();
-    supply.insert(&card::copper, 30);
-    supply.insert(&card::estate, 12);
-    let supply_ref = arc::RWArc::new(supply);
+    let num_players = players.len();
+    let empty_limit = match num_players {
+        0..4 => 3,
+        _    => 4,
+    };
 
+    let mut supply = HashMap::new();
+    supply.insert(&card::copper,   30);
+    supply.insert(&card::silver,   30);
+    supply.insert(&card::gold,     30);
+    supply.insert(&card::estate,   12);
+    supply.insert(&card::duchy,    12);
+    supply.insert(&card::province, 12);
+
+    let supply_ref = arc::RWArc::new(supply);
     for player in players.mut_iter() {
         player.supply_ref = supply_ref.clone();
     }
 
-    loop {
+    'game: loop {
         for player in players.mut_iter() {
             player.new_hand();
             player.actions = 1;
@@ -40,6 +51,47 @@ pub fn play(players: &mut [Player]) {
             player.buying_power = 0;
             (player.play)(player);
             player.discard();
+
+            let done = player.supply_ref.read(|supply| {
+                if *supply.get(& &card::province) == 0 {
+                    return true;
+                }
+                let num_empty = supply.values()
+                    .filter(|x| **x == 0)
+                    .fold(0, |a, &b| a + b);
+
+                num_empty >= empty_limit
+            });
+            if done {
+                break 'game;
+            }
+        }
+    }
+
+    // Calculate the results the results
+    let mut highest_score = 0;
+    players.mut_iter().advance(|p| {
+        p.calculate_score();
+        if p.score > highest_score {
+            highest_score = p.score;
+        }
+        true
+    });
+    let winners = players.iter().filter(|p| p.score == highest_score).to_owned_vec();
+
+    // Display the results
+    for player in players.iter() {
+        println!("{}: {} points", player.name, player.score);
+    }
+    println("");
+
+    let num_winners = winners.len();
+    if num_winners == 1 {
+        println!("{} wins!", winners[0].name);
+    } else {
+        println!("There was a {}-way tie:", num_winners);
+        for winner in winners.iter() {
+            println!("{}", winner.name);
         }
     }
 }
@@ -60,6 +112,7 @@ pub struct Player {
     priv actions: int,
     priv buys: int,
     priv buying_power: int,
+    priv score: int, // for calculating the final score
 }
 
 impl Player {
@@ -81,6 +134,7 @@ impl Player {
             actions: 0,
             buys: 0,
             buying_power: 0,
+            score: 0,
         }
     }
 
@@ -100,6 +154,20 @@ impl Player {
         self.hand.iter()
             .filter(|&c| c.is_money())
             .fold(0, |a, &b| a + b.get_value())
+    }
+
+    // get_buying_power() returns the current available buying power from
+    // everything that's been played so far.
+    pub fn get_buying_power(&self) -> int {
+        self.buying_power
+    }
+
+    // get_total_points() counts up the total point value from all victory
+    // and curse cards in the player's deck, hand, and discard.
+    pub fn get_total_points(&self) -> int {
+        self.deck.iter().chain(self.discard.iter()).chain(self.hand.iter())
+            .filter(|&c| c.is_victory() || c.is_curse())
+            .fold(0, |a, &b| a + b.get_points())
     }
 
     // get_hand() returns a copy of the player's hand. The Card type
@@ -139,6 +207,13 @@ impl Player {
         None
     }
 
+    pub fn play_all_money(&mut self) {
+        let hand = self.get_hand();
+        for money in hand.iter().filter(|&c| c.is_money()) {
+            self.play(*money);
+        }
+    }
+
     // buy() buys a card from the supply, returning one of three possible
     // errors:
     //   1. NotInSupply, if the card is not available in this game
@@ -164,6 +239,18 @@ impl Player {
                 None
             } else {
                 Some(error::NotEnoughMoney(need - self.buying_power))
+            }
+        })
+    }
+
+    // count() returns either the number available for a given card, or a
+    // NotInSupply error if the card isn't available in the game.
+    pub fn count(&mut self, c: card::Card) -> Result<uint, error::Error> {
+        self.supply_ref.read(|supply| -> Result<uint, error::Error> {
+            if !supply.contains_key(&c) {
+                Err(error::NotInSupply)
+            } else {
+                Ok(*supply.get(&c))
             }
         })
     }
@@ -214,5 +301,9 @@ impl Player {
                 }
             }
         }
+    }
+
+    fn calculate_score(&mut self) {
+        self.score = self.get_total_points();
     }
 }

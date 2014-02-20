@@ -7,17 +7,9 @@ extern mod extra;
 use dominion::{Player,play};
 mod dominion;
 
-fn player1(p: &mut Player) {
-    // TODO: add AI here
-}
-
-fn player2(p: &mut Player) {
-    // TODO: add AI here
-}
-
 fn main() {
     play([
-        Player::new(~"Player 1", player1),
-        Player::new(~"Player 2", player2),
+        Player::new(~"Player 1", dominion::strat::big_money),
+        Player::new(~"Player 2", dominion::strat::big_money),
     ]);
 }

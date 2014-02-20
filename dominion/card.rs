@@ -43,7 +43,7 @@ impl CardDef {
         match *self {
             Victory { points: p, .. } => p,
             Curse   { points: p, .. } => p,
-            _ => 0,
+            _ => fail!("Can't get point value of non-victory and non-curse card!"),
         }
     }
 
@@ -59,6 +59,14 @@ impl CardDef {
     pub fn is_victory(&self) -> bool {
         match *self {
             Victory { .. } => true,
+            _ => false,
+        }
+    }
+
+    #[inline]
+    pub fn is_curse(&self) -> bool {
+        match *self {
+            Curse { .. } => true,
             _ => false,
         }
     }
