@@ -122,3 +122,16 @@ fn do_smithy(p: &mut Player) {
         p.draw();
     }
 }
+
+pub static witch: CardDef = Action { name: "Witch", cost: 5, action: &do_witch };
+fn do_witch(p: &mut Player) {
+    for _ in range(0, 2) {
+        p.draw();
+    }
+    unsafe {
+        let mut others = p.other_players();
+        for player in others.mut_iter() {
+            player.curse();
+        }
+    }
+}

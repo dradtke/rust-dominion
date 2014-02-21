@@ -52,3 +52,26 @@ pub fn big_money_smithy(p: &mut Player) {
         _    => p.buy(&card::province),
     };
 }
+
+pub fn big_money_witch(p: &mut Player) {
+    if p.hand_contains(&card::witch) {
+        p.play(&card::witch);
+    }
+    p.play_all_money();
+    match p.get_buying_power() {
+        0..2 => None,
+        3..4 => p.buy(&card::silver),
+        5 => {
+            if !p.has(&card::witch) {
+                p.buy(&card::witch)
+            }
+            else if p.count(&card::province).unwrap() <= 5 {
+                p.buy(&card::duchy)
+            } else {
+                p.buy(&card::silver)
+            }
+        }
+        6..7 => p.buy(&card::gold),
+        _    => p.buy(&card::province),
+    };
+}

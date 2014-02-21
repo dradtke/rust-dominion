@@ -29,7 +29,10 @@ pub fn play(players: &mut [Player]) -> Option<~str> {
     let num_players = players.len();
     if num_players <= 1 {
         fail!("Not enough players!");
+    } else if num_players > 6 {
+        fail!("Too many players!");
     }
+
     let empty_limit = match num_players {
         0..4 => 3,
         _    => 4,
@@ -46,6 +49,7 @@ pub fn play(players: &mut [Player]) -> Option<~str> {
 
     // now for the variations!
     supply.insert(&card::smithy, 10);
+    supply.insert(&card::witch, 10);
 
     let supply_ref = arc::RWArc::new(supply);
     let mut player_refs = ~[];
@@ -59,7 +63,8 @@ pub fn play(players: &mut [Player]) -> Option<~str> {
 
     // give each player a clone of player_refs and
     // ensure that each player's copy has them at
-    // position 0.
+    // position 0. This makes it much easier to
+    // determine the players on either side.
     for player in players.mut_iter() {
         player.player_refs = player_refs.clone();
         let me = (player as *mut Player);
@@ -108,8 +113,7 @@ pub fn play(players: &mut [Player]) -> Option<~str> {
     });
     let winners = players.iter().filter(|p| p.score == highest_score).to_owned_vec();
 
-    let num_winners = winners.len();
-    if num_winners == 1 {
+    if winners.len() == 1 {
         Some(winners[0].name.clone())
     } else {
         // tie
@@ -117,7 +121,9 @@ pub fn play(players: &mut [Player]) -> Option<~str> {
     }
 }
 
+
 pub type PlayerFunc = fn(&mut Player);
+
 
 pub struct Player {
     priv supply_ref: arc::RWArc<HashMap<card::Card, uint>>,
@@ -129,13 +135,13 @@ pub struct Player {
     priv discard: ~[card::Card],
     priv in_play: ~[card::Card],
     priv hand: ~[card::Card],
-    // TODO: just-gained? other card "locations"?
 
     priv actions: uint,
     priv buys: uint,
     priv buying_power: uint,
     priv score: int, // for calculating the final score
 }
+
 
 impl Player {
     // new() creates a new player. They're given a shuffled deck
@@ -188,7 +194,9 @@ impl Player {
     // get_total_points() counts up the total point value from all victory
     // and curse cards in the player's deck, hand, and discard.
     pub fn get_total_points(&self) -> int {
-        self.deck.iter().chain(self.discard.iter()).chain(self.hand.iter())
+        self.deck.iter()
+            .chain(self.discard.iter())
+            .chain(self.hand.iter())
             .filter(|&c| c.is_victory() || c.is_curse())
             .fold(0, |a, &b| a + b.get_points())
     }
@@ -207,6 +215,7 @@ impl Player {
         self.hand.len()
     }
 
+    // has() returns true if the player has the provided card, anywhere.
     pub fn has(&self, c: card::Card) -> bool {
         self.hand.iter().any(|&x| x == c)
             || self.deck.iter().any(|&x| x == c)
@@ -246,6 +255,8 @@ impl Player {
         None
     }
 
+    // play_all_money() is a utility method that iterates through the player's
+    // hand and calls play() on each money card.
     pub fn play_all_money(&mut self) {
         let hand = self.get_hand();
         for money in hand.iter().filter(|&c| c.is_money()) {
@@ -352,23 +363,30 @@ impl Player {
         };
     }
 
+    // calculate_score() counts up the total number of points and saves it
+    // in the local score variable.
     fn calculate_score(&mut self) {
         self.score = self.get_total_points();
     }
 
-    unsafe fn other_players(&mut self) -> ~[&Player] {
+    // other_players() returns a list of references to the other players
+    // in the game, starting with the player on the left and ending with
+    // the player on the right.
+    unsafe fn other_players(&mut self) -> ~[&mut Player] {
         let mut them = ~[];
         for player in self.player_refs.iter().skip(1) {
-            them.push(&(*ptr::read_ptr(player)));
+            them.push(&mut(*ptr::read_ptr(player)));
         }
         them
     }
 
+    // left_player() returns a reference to the player on the left.
     unsafe fn left_player(&mut self) -> &Player {
         let player = self.player_refs.iter().skip(1).next().unwrap();
         &(*ptr::read_ptr(player))
     }
 
+    // right_player() returns a reference to the player on the right.
     unsafe fn right_player(&mut self) -> &Player {
         let player = self.player_refs.iter().last().unwrap();
         &(*ptr::read_ptr(player))

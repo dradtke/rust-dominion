@@ -20,8 +20,8 @@ fn main() {
             let done = chan.clone();
             spawn(proc() {
                 let winner = play([
-                     Player::new(~"Georgia", dominion::strat::big_money),
-                     Player::new(~"Damien", dominion::strat::big_money_smithy),
+                     Player::new(~"Georgia", dominion::strat::big_money_smithy),
+                     Player::new(~"Damien", dominion::strat::big_money_witch),
                 ]);
                 done.send(winner);
             });
