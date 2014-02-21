@@ -5,5 +5,5 @@ pub enum Error {
     InvalidPlay,
     NotInSupply,
     EmptyPile,
-    NotEnoughMoney(int), // how much more is needed to buy the card
+    NotEnoughMoney(uint), // how much more is needed to buy the card
 }

@@ -1,4 +1,5 @@
 
+use super::Player;
 use std::rand::{task_rng, Rng};
 
 macro_rules! get_common_value(
@@ -12,12 +13,12 @@ macro_rules! get_common_value(
     )
 )
 
-#[deriving(IterBytes, Eq)]
+#[deriving(IterBytes,Eq)]
 pub enum CardDef {
-    Money   { name: &'static str, cost: int, value: int },
-    Victory { name: &'static str, cost: int, points: int },
-    Action  { name: &'static str, cost: int }, // TODO: implement
-    Curse   { name: &'static str, cost: int, points: int },
+    Money   { name: &'static str, cost: uint, value: uint },
+    Victory { name: &'static str, cost: uint, points: int },
+    Action  { name: &'static str, cost: uint },
+    Curse   { name: &'static str, cost: uint, points: int },
 }
 
 impl CardDef {
@@ -26,12 +27,12 @@ impl CardDef {
     }
 
     #[inline]
-    pub fn get_cost(&self) -> int {
+    pub fn get_cost(&self) -> uint {
         get_common_value!(*self, cost)
     }
 
     #[inline]
-    pub fn get_value(&self) -> int {
+    pub fn get_value(&self) -> uint {
         match *self {
             Money { value: v, .. } => v,
             _ => fail!("Can't get value of non-money card!"),
@@ -86,6 +87,16 @@ impl CardDef {
         }
         cards
     }
+
+    pub fn act(&'static self, player: &mut Player) {
+        if !self.is_action() {
+            fail!("Not an action card!");
+        }
+        match self.get_name() {
+            "Smithy" => do_smithy(player),
+            _ => fail!("Not implemented!"),
+        }
+    }
 }
 
 pub type Card = &'static CardDef;
@@ -104,3 +115,10 @@ pub static estate:   CardDef = Victory { name: "Estate",   cost: 2, points: 1  }
 pub static duchy:    CardDef = Victory { name: "Duchy",    cost: 5, points: 3  };
 pub static province: CardDef = Victory { name: "Province", cost: 8, points: 6  };
 pub static curse:    CardDef = Curse   { name: "Curse",    cost: 0, points: -1 };
+
+pub static smithy: CardDef = Action { name: "Smithy", cost: 3 };
+fn do_smithy(p: &mut Player) {
+    p.draw();
+    p.draw();
+    p.draw();
+}

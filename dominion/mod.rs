@@ -2,6 +2,7 @@
 use extra::arc;
 
 use std::hashmap::HashMap;
+use std::ptr;
 use std::util;
 
 pub mod card;
@@ -19,12 +20,16 @@ macro_rules! unwrap_or_err(
 )
 
 // play() is the entry point for a game. It should be passed a
-// list of Player references, and does a couple things. First it
+// list of Player references, and does a few things. First it
 // creates a new supply pile, sticks it in a RWArc and gives each
-// player a reference to it. Then it loops forever until the game
-// has ended, playing each player in turn.
+// player a reference to it; then it loops forever until the game
+// has ended, playing each player in turn; and finally, it
+// prints out the results of the game.
 pub fn play(players: &mut [Player]) {
     let num_players = players.len();
+    if num_players <= 1 {
+        fail!("Not enough players!");
+    }
     let empty_limit = match num_players {
         0..4 => 3,
         _    => 4,
@@ -37,10 +42,31 @@ pub fn play(players: &mut [Player]) {
     supply.insert(&card::estate,   12);
     supply.insert(&card::duchy,    12);
     supply.insert(&card::province, 12);
+    supply.insert(&card::curse,    30);
 
     let supply_ref = arc::RWArc::new(supply);
+    let mut player_refs = ~[];
+
+    // give each player a reference to the supply
+    // and fill the player_refs array
     for player in players.mut_iter() {
         player.supply_ref = supply_ref.clone();
+        player_refs.push(player as *mut Player);
+    }
+
+    // give each player a clone of player_refs and
+    // ensure that each player's copy has them at
+    // position 0.
+    for player in players.mut_iter() {
+        player.player_refs = player_refs.clone();
+        let me = (player as *mut Player);
+        loop {
+            if player.player_refs[0] == me {
+                break;
+            }
+            let p = player.player_refs.shift();
+            player.player_refs.push(p);
+        }
     }
 
     'game: loop {
@@ -51,6 +77,13 @@ pub fn play(players: &mut [Player]) {
             player.buying_power = 0;
             (player.play)(player);
             player.discard();
+
+            unsafe {
+                for other_player in player.player_refs.iter() {
+                    let p = ptr::read_ptr(other_player);
+                    println!("{}", (*p).name);
+                }
+            }
 
             let done = player.supply_ref.read(|supply| {
                 if *supply.get(& &card::province) == 0 {
@@ -68,7 +101,7 @@ pub fn play(players: &mut [Player]) {
         }
     }
 
-    // Calculate the results the results
+    // Calculate the results
     let mut highest_score = 0;
     players.mut_iter().advance(|p| {
         p.calculate_score();
@@ -102,6 +135,7 @@ pub struct Player {
     priv supply_ref: arc::RWArc<HashMap<card::Card, uint>>,
     priv name: ~str,
     priv play: PlayerFunc,
+    priv player_refs: ~[*mut Player], // unsafe references to the other players
 
     priv deck: ~[card::Card],
     priv discard: ~[card::Card],
@@ -109,9 +143,9 @@ pub struct Player {
     priv hand: ~[card::Card],
     // TODO: just-gained? other card "locations"?
 
-    priv actions: int,
-    priv buys: int,
-    priv buying_power: int,
+    priv actions: uint,
+    priv buys: uint,
+    priv buying_power: uint,
     priv score: int, // for calculating the final score
 }
 
@@ -127,6 +161,7 @@ impl Player {
             supply_ref: arc::RWArc::new(HashMap::new()),
             name: name,
             play: play,
+            player_refs: ~[],
             deck: deck,
             discard: ~[],
             in_play: ~[],
@@ -150,7 +185,7 @@ impl Player {
 
     // get_available_money() returns a count of the total available money
     // currently in the player's hand.
-    pub fn get_available_money(&self) -> int {
+    pub fn get_available_money(&self) -> uint {
         self.hand.iter()
             .filter(|&c| c.is_money())
             .fold(0, |a, &b| a + b.get_value())
@@ -158,7 +193,7 @@ impl Player {
 
     // get_buying_power() returns the current available buying power from
     // everything that's been played so far.
-    pub fn get_buying_power(&self) -> int {
+    pub fn get_buying_power(&self) -> uint {
         self.buying_power
     }
 
@@ -243,6 +278,19 @@ impl Player {
         })
     }
 
+    // curse() gives the player a curse card and depletes one from the supply.
+    fn curse(&mut self) -> Option<error::Error> {
+        self.supply_ref.write(|supply| -> Option<error::Error> {
+            let pile = *supply.get(& &card::curse);
+            if pile == 0 {
+                return Some(error::EmptyPile);
+            }
+            supply.insert(&card::curse, pile - 1);
+            self.discard.push(&card::curse);
+            None
+        })
+    }
+
     // count() returns either the number available for a given card, or a
     // NotInSupply error if the card isn't available in the game.
     pub fn count(&mut self, c: card::Card) -> Result<uint, error::Error> {
@@ -305,5 +353,23 @@ impl Player {
 
     fn calculate_score(&mut self) {
         self.score = self.get_total_points();
+    }
+
+    unsafe fn other_players(&mut self) -> ~[&Player] {
+        let mut them = ~[];
+        for player in self.player_refs.iter().skip(1) {
+            them.push(&(*ptr::read_ptr(player)));
+        }
+        them
+    }
+
+    unsafe fn left_player(&mut self) -> &Player {
+        let player = self.player_refs.iter().skip(1).next().unwrap();
+        &(*ptr::read_ptr(player))
+    }
+
+    unsafe fn right_player(&mut self) -> &Player {
+        let player = self.player_refs.iter().last().unwrap();
+        &(*ptr::read_ptr(player))
     }
 }
