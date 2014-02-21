@@ -25,7 +25,7 @@ macro_rules! unwrap_or_err(
 // player a reference to it; then it loops forever until the game
 // has ended, playing each player in turn; and finally, it
 // prints out the results of the game.
-pub fn play(players: &mut [Player]) {
+pub fn play(players: &mut [Player]) -> Option<~str> {
     let num_players = players.len();
     if num_players <= 1 {
         fail!("Not enough players!");
@@ -43,6 +43,9 @@ pub fn play(players: &mut [Player]) {
     supply.insert(&card::duchy,    12);
     supply.insert(&card::province, 12);
     supply.insert(&card::curse,    30);
+
+    // now for the variations!
+    supply.insert(&card::smithy, 10);
 
     let supply_ref = arc::RWArc::new(supply);
     let mut player_refs = ~[];
@@ -78,13 +81,6 @@ pub fn play(players: &mut [Player]) {
             (player.play)(player);
             player.discard();
 
-            unsafe {
-                for other_player in player.player_refs.iter() {
-                    let p = ptr::read_ptr(other_player);
-                    println!("{}", (*p).name);
-                }
-            }
-
             let done = player.supply_ref.read(|supply| {
                 if *supply.get(& &card::province) == 0 {
                     return true;
@@ -112,20 +108,12 @@ pub fn play(players: &mut [Player]) {
     });
     let winners = players.iter().filter(|p| p.score == highest_score).to_owned_vec();
 
-    // Display the results
-    for player in players.iter() {
-        println!("{}: {} points", player.name, player.score);
-    }
-    println("");
-
     let num_winners = winners.len();
     if num_winners == 1 {
-        println!("{} wins!", winners[0].name);
+        Some(winners[0].name.clone())
     } else {
-        println!("There was a {}-way tie:", num_winners);
-        for winner in winners.iter() {
-            println!("{}", winner.name);
-        }
+        // tie
+        None
     }
 }
 
@@ -219,6 +207,13 @@ impl Player {
         self.hand.len()
     }
 
+    pub fn has(&self, c: card::Card) -> bool {
+        self.hand.iter().any(|&x| x == c)
+            || self.deck.iter().any(|&x| x == c)
+            || self.discard.iter().any(|&x| x == c)
+            || self.in_play.iter().any(|&x| x == c)
+    }
+
     // hand_contains() returns true if and only if the player's hand contains
     // the specified card.
     pub fn hand_contains(&self, c: card::Card) -> bool {
@@ -235,6 +230,15 @@ impl Player {
             card::Money { value: v, .. } => {
                 self.buying_power += v;
                 self.actions = 0;
+            },
+            card:: Action { action: a, .. } => {
+                if self.actions == 0 {
+                    return Some(error::NoActions);
+                }
+                unsafe {
+                    (*a)(self);
+                    self.actions = self.actions - 1;
+                }
             },
             _ => return Some(error::InvalidPlay),
         }
@@ -307,10 +311,7 @@ impl Player {
     // the player's hand.
     fn new_hand(&mut self) {
         for _ in range(0, 5) {
-            match self.draw() {
-                Some(c) => self.hand.push(c),
-                None => break,
-            }
+            self.draw();
         }
     }
 
@@ -331,24 +332,24 @@ impl Player {
         }
     }
 
-    // draw() removes a card from the top of the deck and returns it. If
+    // draw() removes a card from the top of the deck and adds it to the hand. If
     // the deck is empty, then the discard pile and deck are swapped (making
     // the deck equal to the old discard and the discard empty), the deck
     // is shuffled, and the draw is tried again.
-    fn draw(&mut self) -> Option<card::Card> {
+    fn draw(&mut self) {
         match self.deck.shift_opt() {
-            Some(c) => Some(c),
+            Some(c) => self.hand.push(c),
             None => {
                 // deck is empty, swap it with the discard and shuffle it
                 if self.discard.len() == 0 {
-                    None
+                    return;
                 } else {
                     util::swap(&mut self.deck, &mut self.discard);
                     card::shuffle(self.deck);
-                    self.draw()
+                    self.draw();
                 }
             }
-        }
+        };
     }
 
     fn calculate_score(&mut self) {

@@ -1,5 +1,5 @@
 
-use super::Player;
+use super::{Player,PlayerFunc};
 use std::rand::{task_rng, Rng};
 
 macro_rules! get_common_value(
@@ -17,7 +17,7 @@ macro_rules! get_common_value(
 pub enum CardDef {
     Money   { name: &'static str, cost: uint, value: uint },
     Victory { name: &'static str, cost: uint, points: int },
-    Action  { name: &'static str, cost: uint },
+    Action  { name: &'static str, cost: uint, action: *PlayerFunc },
     Curse   { name: &'static str, cost: uint, points: int },
 }
 
@@ -116,9 +116,9 @@ pub static duchy:    CardDef = Victory { name: "Duchy",    cost: 5, points: 3  }
 pub static province: CardDef = Victory { name: "Province", cost: 8, points: 6  };
 pub static curse:    CardDef = Curse   { name: "Curse",    cost: 0, points: -1 };
 
-pub static smithy: CardDef = Action { name: "Smithy", cost: 3 };
+pub static smithy: CardDef = Action { name: "Smithy", cost: 3, action: &do_smithy };
 fn do_smithy(p: &mut Player) {
-    p.draw();
-    p.draw();
-    p.draw();
+    for _ in range(0, 3) {
+        p.draw();
+    }
 }

@@ -5,11 +5,43 @@
 extern mod extra;
 
 use dominion::{Player,play};
+use std::comm::SharedChan;
+use std::hashmap::HashMap;
+use std::os;
+
 mod dominion;
 
 fn main() {
-    play([
-        Player::new(~"Player 1", dominion::strat::big_money),
-        Player::new(~"Player 2", dominion::strat::big_money),
-    ]);
+    let (port, chan) = SharedChan::new();
+    let args = os::args();
+    if args.len() > 1 {
+        let n: int = from_str(args[1]).unwrap();
+        for _ in range(0, n) {
+            let done = chan.clone();
+            spawn(proc() {
+                let winner = play([
+                     Player::new(~"Georgia", dominion::strat::big_money),
+                     Player::new(~"Damien", dominion::strat::big_money_smithy),
+                ]);
+                done.send(winner);
+            });
+        }
+        let mut scores = HashMap::<~str,uint>::new();
+        for _ in range(0, n) {
+            let winner = port.recv();
+            if winner.is_some() {
+                let name = winner.unwrap();
+                if !scores.contains_key(&name) {
+                    scores.insert(name, 1);
+                } else {
+                    let new_score = scores.get(&name) + 1;
+                    scores.insert(name, new_score);
+                }
+            }
+        }
+
+        for key in scores.keys() {
+            println!("{} won {} times", *key, *scores.get(key));
+        }
+    }
 }
