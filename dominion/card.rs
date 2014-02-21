@@ -22,7 +22,8 @@ pub enum CardDef {
 }
 
 impl CardDef {
-    #[inline] pub fn get_name(&self) -> &'static str {
+    #[inline]
+    pub fn get_name(&self) -> &'static str {
         get_common_value!(*self, name)
     }
 
