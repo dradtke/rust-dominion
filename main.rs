@@ -2,24 +2,24 @@
 #[feature(macro_rules)];
 #[allow(dead_code)];
 
-extern mod extra;
+extern crate extra;
 
 use dominion::{Player,play};
-use std::comm::SharedChan;
+use std::comm::Chan;
 use std::hashmap::HashMap;
 use std::os;
 
 mod dominion;
 
 fn main() {
-    let (port, chan) = SharedChan::new();
+    let (port, chan) = Chan::new();
     let args = os::args();
     if args.len() > 1 {
         let n: int = from_str(args[1]).unwrap();
         for _ in range(0, n) {
             let done = chan.clone();
             spawn(proc() {
-                let winner = play([
+                let winner = play(~[
                      Player::new(~"Georgia", dominion::strat::big_money_smithy),
                      Player::new(~"Damien", dominion::strat::big_money_witch),
                 ]);

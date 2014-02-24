@@ -100,39 +100,40 @@ impl CardDef {
     }
 }
 
-pub type Card = &'static CardDef;
-
 pub fn shuffle(cards: &mut [Card]) {
     task_rng().shuffle_mut(cards);
 }
 
 /* Card Definitions */
+pub type Card = &'static CardDef;
 
-pub static copper: CardDef = Money { name: "Copper", cost: 0, value: 1 };
-pub static silver: CardDef = Money { name: "Silver", cost: 3, value: 2 };
-pub static gold:   CardDef = Money { name: "Gold",   cost: 6, value: 3 };
+pub static COPPER: Card = &'static Money { name: "Copper", cost: 0, value: 1 };
+pub static SILVER: Card = &'static Money { name: "Silver", cost: 3, value: 2 };
+pub static GOLD:   Card = &'static Money { name: "Gold",   cost: 6, value: 3 };
 
-pub static estate:   CardDef = Victory { name: "Estate",   cost: 2, points: 1  };
-pub static duchy:    CardDef = Victory { name: "Duchy",    cost: 5, points: 3  };
-pub static province: CardDef = Victory { name: "Province", cost: 8, points: 6  };
-pub static curse:    CardDef = Curse   { name: "Curse",    cost: 0, points: -1 };
+pub static ESTATE:   Card = &'static Victory { name: "Estate",   cost: 2, points: 1  };
+pub static DUCHY:    Card = &'static Victory { name: "Duchy",    cost: 5, points: 3  };
+pub static PROVINCE: Card = &'static Victory { name: "Province", cost: 8, points: 6  };
+pub static CURSE:    Card = &'static Curse   { name: "Curse",    cost: 0, points: -1 };
 
-pub static smithy: CardDef = Action { name: "Smithy", cost: 3, action: &do_smithy };
+pub static SMITHY: Card = &'static Action { name: "Smithy", cost: 3, action: &do_smithy };
 fn do_smithy(p: &mut Player) {
     for _ in range(0, 3) {
         p.draw();
     }
 }
 
-pub static witch: CardDef = Action { name: "Witch", cost: 5, action: &do_witch };
+pub static WITCH: Card = &'static Action { name: "Witch", cost: 5, action: &do_witch };
 fn do_witch(p: &mut Player) {
     for _ in range(0, 2) {
         p.draw();
     }
+	/*
     unsafe {
         let mut others = p.other_players();
         for player in others.mut_iter() {
             player.curse();
         }
     }
+	*/
 }

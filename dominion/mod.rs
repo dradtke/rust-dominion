@@ -1,9 +1,12 @@
 
-use extra::arc;
-
+use std::any;
+use std::cell::RefCell;
 use std::hashmap::HashMap;
+use std::iter;
 use std::ptr;
-use std::util;
+use std::rc::{Rc,Weak};
+use std::mem;
+use std::vec;
 
 pub mod card;
 pub mod error;
@@ -25,7 +28,7 @@ macro_rules! unwrap_or_err(
 // player a reference to it; then it loops forever until the game
 // has ended, playing each player in turn; and finally, it
 // prints out the results of the game.
-pub fn play(players: &mut [Player]) -> Option<~str> {
+pub fn play(players: ~[Player]) -> Option<~str> {
     let num_players = players.len();
     if num_players <= 1 {
         fail!("Not enough players!");
@@ -39,82 +42,80 @@ pub fn play(players: &mut [Player]) -> Option<~str> {
     };
 
     let mut supply = HashMap::new();
-    supply.insert(&card::copper,   30);
-    supply.insert(&card::silver,   30);
-    supply.insert(&card::gold,     30);
-    supply.insert(&card::estate,   12);
-    supply.insert(&card::duchy,    12);
-    supply.insert(&card::province, 12);
-    supply.insert(&card::curse,    30);
+    supply.insert(card::COPPER,   30);
+    supply.insert(card::SILVER,   30);
+    supply.insert(card::GOLD,     30);
+    supply.insert(card::ESTATE,   12);
+    supply.insert(card::DUCHY,    12);
+    supply.insert(card::PROVINCE, 12);
+    supply.insert(card::CURSE,    30);
 
     // now for the variations!
-    supply.insert(&card::smithy, 10);
-    supply.insert(&card::witch, 10);
+    supply.insert(card::SMITHY, 10);
+    supply.insert(card::WITCH, 10);
 
-    let supply_ref = arc::RWArc::new(supply);
-    let mut player_refs = ~[];
+	let supply_cell = RefCell::new(supply);
+	let supply_rc = Rc::new(supply_cell);
 
-    // give each player a reference to the supply
-    // and fill the player_refs array
-    for player in players.mut_iter() {
-        player.supply_ref = supply_ref.clone();
-        player_refs.push(player as *mut Player);
-    }
+	let player_refs = players.move_iter().map(|p| Rc::new(RefCell::new(p))).to_owned_vec();
 
-    // give each player a clone of player_refs and
-    // ensure that each player's copy has them at
-    // position 0. This makes it much easier to
-    // determine the players on either side.
-    for player in players.mut_iter() {
-        player.player_refs = player_refs.clone();
-        let me = (player as *mut Player);
-        loop {
-            if player.player_refs[0] == me {
-                break;
-            }
-            let p = player.player_refs.shift();
-            player.player_refs.push(p);
-        }
+    for me_ref in player_refs.iter() {
+		let refs = player_refs.clone();
+		let refs_iter = refs.iter();
+        let weak_refs = me_ref.borrow().with(|me| {
+			let pre  = refs_iter.take_while(|p_ref| p_ref.borrow().with(|p| p.ne(me)));
+			let post = refs_iter.skip_while(|p_ref| p_ref.borrow().with(|p| p.ne(me))).skip(1);
+			let others = post.chain(pre);
+			others.map(|r| r.downgrade()).to_owned_vec()
+		});
+        me_ref.borrow().with_mut(|me| {
+			me.player_refs = weak_refs.clone(); // why is this necessary to clone?
+			me.supply_rc = supply_rc.clone();
+		});
     }
 
     'game: loop {
-        for player in players.mut_iter() {
-            player.new_hand();
-            player.actions = 1;
-            player.buys = 1;
-            player.buying_power = 0;
-            (player.play)(player);
-            player.discard();
+        for player_ref in player_refs.iter() {
+			let done = player_ref.borrow().with_mut(|player| {
+				player.new_hand();
+				player.actions = 1;
+				player.buys = 1;
+				player.buying_power = 0;
+				(player.play)(player);
+				player.discard();
 
-            let done = player.supply_ref.read(|supply| {
-                if *supply.get(& &card::province) == 0 {
-                    return true;
-                }
-                let num_empty = supply.values()
-                    .filter(|x| **x == 0)
-                    .fold(0, |a, &b| a + b);
-
-                num_empty >= empty_limit
-            });
-            if done {
-                break 'game;
-            }
+				player.with_supply(|supply| {
+					if *supply.get(&card::PROVINCE) == 0 {
+						true
+					} else {
+						let num_empty = supply.values().filter(|x| **x == 0).fold(0, |a, &b| a + b);
+						num_empty >= empty_limit
+					}
+				})
+			});
+			if done {
+				break 'game;
+			}
         }
     }
 
     // Calculate the results
     let mut highest_score = 0;
-    players.mut_iter().advance(|p| {
-        p.calculate_score();
-        if p.score > highest_score {
-            highest_score = p.score;
-        }
-        true
-    });
-    let winners = players.iter().filter(|p| p.score == highest_score).to_owned_vec();
+	for player_ref in player_refs.iter() {
+		player_ref.borrow().with_mut(|player| {
+			player.calculate_score();
+			if player.score > highest_score {
+				highest_score = player.score;
+			}
+		});
+	}
+
+    let winners = player_refs.iter()
+		.filter(|player_ref| player_ref.borrow().with(|player| player.score == highest_score))
+		.to_owned_vec();
 
     if winners.len() == 1 {
-        Some(winners[0].name.clone())
+		Some(winners[0].borrow().with(|player| player.name.clone()))
     } else {
         // tie
         None
@@ -124,12 +125,17 @@ pub fn play(players: &mut [Player]) -> Option<~str> {
 
 pub type PlayerFunc = fn(&mut Player);
 
+pub type PlayerRef<'p> = Weak<RefCell<Player<'p>>>;
 
-pub struct Player {
-    priv supply_ref: arc::RWArc<HashMap<card::Card, uint>>,
+pub type Supply = HashMap<card::Card, uint>;
+
+
+// TODO: find a way to derive Default
+pub struct Player<'p> {
+    priv supply_rc: Rc<RefCell<Supply>>,
     priv name: ~str,
     priv play: PlayerFunc,
-    priv player_refs: ~[*mut Player], // unsafe references to the other players
+    priv player_refs: ~[PlayerRef<'p>],
 
     priv deck: ~[card::Card],
     priv discard: ~[card::Card],
@@ -143,16 +149,23 @@ pub struct Player {
 }
 
 
-impl Player {
+impl<'p> Eq for Player<'p> {
+	fn eq(&self, other: &Player) -> bool {
+		self.name == other.name
+	}
+}
+
+
+impl<'p> Player<'p> {
     // new() creates a new player. They're given a shuffled deck
     // of 7 coppers and 3 estates.
     pub fn new(name: ~str, play: PlayerFunc) -> Player {
         let mut deck = ~[];
-        deck.push_all_move(card::copper.create_copies(7));
-        deck.push_all_move(card::estate.create_copies(3));
+        deck.push_all_move(card::COPPER.create_copies(7));
+        deck.push_all_move(card::ESTATE.create_copies(3));
         card::shuffle(deck);
         Player{
-            supply_ref: arc::RWArc::new(HashMap::new()),
+            supply_rc: Rc::new(RefCell::new(HashMap::new())),
             name: name,
             play: play,
             player_refs: ~[],
@@ -251,7 +264,7 @@ impl Player {
             },
             _ => return Some(error::InvalidPlay),
         }
-        self.in_play.push(self.hand.remove(index));
+        self.in_play.push(self.hand.remove(index).unwrap());
         None
     }
 
@@ -272,50 +285,44 @@ impl Player {
     // On success, the appropriate supply count is decremented and a copy
     // of the card is added to the player's discard pile.
     pub fn buy(&mut self, c: card::Card) -> Option<error::Error> {
-        self.supply_ref.write(|supply| -> Option<error::Error> {
-            if !supply.contains_key(&c) {
-                return Some(error::NotInSupply);
-            }
-            let pile = *supply.get(&c);
-            if pile == 0 {
-                return Some(error::EmptyPile);
-            }
-            let need = c.get_cost();
-            if self.buying_power >= need {
-                supply.insert(c, pile - 1);
-                self.discard.push(c);
-                self.actions = 0;
-                self.buying_power -= need;
-                None
-            } else {
-                Some(error::NotEnoughMoney(need - self.buying_power))
-            }
-        })
+		let pile = unwrap_or_err!(self.count(c), error::NotInSupply);
+		if pile == 0 {
+			return Some(error::EmptyPile);
+		}
+		let need = c.get_cost();
+		if self.buying_power >= need {
+			self.with_mut_supply(|supply| supply.insert(c, pile - 1));
+			self.discard.push(c);
+			self.actions = 0;
+			self.buying_power -= need;
+			None
+		} else {
+			Some(error::NotEnoughMoney(need - self.buying_power))
+		}
     }
 
     // curse() gives the player a curse card and depletes one from the supply.
     fn curse(&mut self) -> Option<error::Error> {
-        self.supply_ref.write(|supply| -> Option<error::Error> {
-            let pile = *supply.get(& &card::curse);
-            if pile == 0 {
-                return Some(error::EmptyPile);
-            }
-            supply.insert(&card::curse, pile - 1);
-            self.discard.push(&card::curse);
-            None
-        })
+		let pile = self.count(card::CURSE).unwrap();
+		if pile == 0 {
+			Some(error::EmptyPile)
+		} else {
+			self.with_mut_supply(|supply| supply.insert(card::CURSE, pile - 1));
+			self.discard.push(card::CURSE);
+			None
+		}
     }
 
-    // count() returns either the number available for a given card, or a
-    // NotInSupply error if the card isn't available in the game.
-    pub fn count(&mut self, c: card::Card) -> Result<uint, error::Error> {
-        self.supply_ref.read(|supply| -> Result<uint, error::Error> {
-            if !supply.contains_key(&c) {
-                Err(error::NotInSupply)
-            } else {
-                Ok(*supply.get(&c))
-            }
-        })
+    // count() returns either the number available for a given card, or None
+	// if the card wasn't available in this game.
+    pub fn count(&mut self, c: card::Card) -> Option<uint> {
+		self.with_supply(|supply| {
+			if !supply.contains_key(&c) {
+				None
+			} else {
+				Some(*supply.get(&c))
+			}
+		})
     }
 
     // new_hand() draws up to five cards from the deck and places them in
@@ -330,13 +337,13 @@ impl Player {
     // discard pile.
     fn discard(&mut self) {
         loop {
-            match self.hand.shift_opt() {
+            match self.hand.shift() {
                 Some(c) => self.discard.push(c),
                 None => break,
             }
         }
         loop {
-            match self.in_play.shift_opt() {
+            match self.in_play.shift() {
                 Some(c) => self.discard.push(c),
                 None => break,
             }
@@ -348,14 +355,14 @@ impl Player {
     // the deck equal to the old discard and the discard empty), the deck
     // is shuffled, and the draw is tried again.
     fn draw(&mut self) {
-        match self.deck.shift_opt() {
+        match self.deck.shift() {
             Some(c) => self.hand.push(c),
             None => {
                 // deck is empty, swap it with the discard and shuffle it
                 if self.discard.len() == 0 {
                     return;
                 } else {
-                    util::swap(&mut self.deck, &mut self.discard);
+                    mem::swap(&mut self.deck, &mut self.discard);
                     card::shuffle(self.deck);
                     self.draw();
                 }
@@ -372,23 +379,29 @@ impl Player {
     // other_players() returns a list of references to the other players
     // in the game, starting with the player on the left and ending with
     // the player on the right.
-    unsafe fn other_players(&mut self) -> ~[&mut Player] {
-        let mut them = ~[];
-        for player in self.player_refs.iter().skip(1) {
-            them.push(&mut(*ptr::read_ptr(player)));
-        }
-        them
+    fn other_players<'a>(&'a mut self) -> iter::Map<'a, PlayerRef<'p>> {
+		self.player_refs.iter()
     }
 
+	/*
     // left_player() returns a reference to the player on the left.
-    unsafe fn left_player(&mut self) -> &Player {
+    unsafe fn left_player(&mut self) {
         let player = self.player_refs.iter().skip(1).next().unwrap();
-        &(*ptr::read_ptr(player))
+        //&(*ptr::read_ptr(player))
     }
 
     // right_player() returns a reference to the player on the right.
-    unsafe fn right_player(&mut self) -> &Player {
+    unsafe fn right_player(&mut self) {
         let player = self.player_refs.iter().last().unwrap();
-        &(*ptr::read_ptr(player))
+        //&(*ptr::read_ptr(player))
     }
+	*/
+
+	fn with_mut_supply<U>(&mut self, f: |&mut Supply| -> U) -> U {
+		self.supply_rc.borrow().with_mut(f)
+	}
+
+	fn with_supply<U>(&mut self, f: |&Supply| -> U) -> U {
+		self.supply_rc.borrow().with(f)
+	}
 }
