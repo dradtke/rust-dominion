@@ -376,26 +376,28 @@ impl<'p> Player<'p> {
         self.score = self.get_total_points();
     }
 
-    // other_players() returns a list of references to the other players
-    // in the game, starting with the player on the left and ending with
-    // the player on the right.
-    fn other_players<'a>(&'a mut self) -> iter::Map<'a, PlayerRef<'p>> {
-		self.player_refs.iter()
+    fn with_other_players(&mut self, f: |&mut Player|) {
+		for other_player_ref in self.player_refs.iter() {
+			match other_player_ref.upgrade() {
+				None => fail!("Where did the other player go?!"),
+				Some(other_player) => other_player.borrow().with_mut(|p| f(p)),
+			};
+		}
     }
 
-	/*
-    // left_player() returns a reference to the player on the left.
-    unsafe fn left_player(&mut self) {
-        let player = self.player_refs.iter().skip(1).next().unwrap();
-        //&(*ptr::read_ptr(player))
-    }
+	fn with_left_player<U>(&mut self, f: |&mut Player| -> U) -> U {
+		match self.player_refs[0].upgrade() {
+			None => fail!("Where did the left player go?!"),
+			Some(left_player) => left_player.borrow().with_mut(|p| f(p)),
+		}
+	}
 
-    // right_player() returns a reference to the player on the right.
-    unsafe fn right_player(&mut self) {
-        let player = self.player_refs.iter().last().unwrap();
-        //&(*ptr::read_ptr(player))
-    }
-	*/
+	fn with_right_player<U>(&mut self, f: |&mut Player| -> U) -> U {
+		match self.player_refs[self.player_refs.len()-1].upgrade() {
+			None => fail!("Where did the right player go?!"),
+			Some(right_player) => right_player.borrow().with_mut(|p| f(p)),
+		}
+	}
 
 	fn with_mut_supply<U>(&mut self, f: |&mut Supply| -> U) -> U {
 		self.supply_rc.borrow().with_mut(f)

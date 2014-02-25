@@ -128,12 +128,5 @@ fn do_witch(p: &mut Player) {
     for _ in range(0, 2) {
         p.draw();
     }
-	/*
-    unsafe {
-        let mut others = p.other_players();
-        for player in others.mut_iter() {
-            player.curse();
-        }
-    }
-	*/
+	p.with_other_players(|other: &mut Player| { other.curse(); });
 }
