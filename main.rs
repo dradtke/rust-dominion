@@ -2,11 +2,12 @@
 #[feature(macro_rules)];
 #[allow(dead_code)];
 
+extern crate collections;
 extern crate extra;
 
+use collections::hashmap::HashMap;
 use dominion::{Player,play};
 use std::comm::Chan;
-use std::hashmap::HashMap;
 use std::os;
 
 mod dominion;

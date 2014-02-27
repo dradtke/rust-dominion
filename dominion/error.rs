@@ -4,6 +4,7 @@ pub enum Error {
     NoBuys,
     InvalidPlay,
     NotInSupply,
+	NotInHand,
     EmptyPile,
     NotEnoughMoney(uint), // how much more is needed to buy the card
 }

@@ -75,3 +75,7 @@ pub fn big_money_witch(p: &mut Player) {
         _    => p.buy(card::PROVINCE),
     };
 }
+
+pub fn cellaring(p: &mut Player) {
+	p.play(card::CELLAR);
+}
