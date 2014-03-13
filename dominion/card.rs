@@ -1,15 +1,23 @@
 
 use super::Player;
+use std::hash::Hash;
 use std::rand::{task_rng, Rng};
 
-macro_rules! get_common_value(
-    ($val:expr, $field:ident) => (
-        match $val {
-            Money   { $field: x, .. } => x,
-            Victory { $field: x, .. } => x,
-            Action  { $field: x, .. } => x,
-            Curse   { $field: x, .. } => x,
-        }
+macro_rules! money(
+    ($name:expr costs $cost:expr and gives $value:expr buying power) => (
+        &'static CardDef { name: $name, cost: $cost, value: $value, vp: 0, action: 0 as *ActionFunc, typ: Money }
+    )
+)
+
+macro_rules! victory(
+    ($name:expr costs $cost:expr and gives $value:expr victory points) => (
+        &'static CardDef { name: $name, cost: $cost, value: 0, vp: $value, action: 0 as *ActionFunc, typ: Victory }
+    )
+)
+
+macro_rules! action(
+    ($name:expr costs $cost:expr and calls $action:ident) => (
+        &'static CardDef { name: $name, cost: $cost, value: 0, vp: 0, action: &$action, typ: Action }
     )
 )
 
@@ -19,6 +27,7 @@ pub fn shuffle(cards: &mut [Card]) {
 
 type ActionFunc = fn(&mut Player, &[ActionInput]);
 
+/*
 #[deriving(Hash,Eq)]
 pub enum CardDef {
     Money   { name: &'static str, cost: uint, value: uint },
@@ -26,77 +35,49 @@ pub enum CardDef {
     Action  { name: &'static str, cost: uint, action: *ActionFunc },
     Curse   { name: &'static str, cost: uint, points: int },
 }
+*/
+
+#[deriving(Hash)]
+pub enum CardType {
+    NoType =  0u,
+    Money = 1u,
+    Victory = 2u,
+    Action = 4u,
+    Curse = 8u,
+}
+
+#[deriving(Hash)]
+pub struct CardDef {
+    name: &'static str,
+    cost: uint,
+    value: uint,
+    vp: int,
+    action: *ActionFunc,
+    typ: CardType,
+}
 
 impl TotalOrd for CardDef {
 	fn cmp(&self, other: &CardDef) -> Ordering {
-		self.get_name().cmp(&other.get_name())
+		self.name.cmp(&other.name)
 	}
 }
 
 impl TotalEq for CardDef {
 	fn equals(&self, other: &CardDef) -> bool {
-		self.get_name().equals(&other.get_name())
+		self.name.equals(&other.name)
+	}
+}
+
+impl Eq for CardDef {
+	fn eq(&self, other: &CardDef) -> bool {
+		self.name.equals(&other.name)
 	}
 }
 
 impl CardDef {
     #[inline]
-    pub fn get_name(&self) -> &'static str {
-        get_common_value!(*self, name)
-    }
-
-    #[inline]
-    pub fn get_cost(&self) -> uint {
-        get_common_value!(*self, cost)
-    }
-
-    #[inline]
-    pub fn get_value(&self) -> uint {
-        match *self {
-            Money { value: v, .. } => v,
-            _ => fail!("Can't get value of non-money card!"),
-        }
-    }
-
-    #[inline]
-    pub fn get_points(&self) -> int {
-        match *self {
-            Victory { points: p, .. } => p,
-            Curse   { points: p, .. } => p,
-            _ => fail!("Can't get point value of non-victory and non-curse card!"),
-        }
-    }
-
-    #[inline]
-    pub fn is_money(&self) -> bool {
-        match *self {
-            Money { .. } => true,
-            _ => false,
-        }
-    }
-
-    #[inline]
-    pub fn is_victory(&self) -> bool {
-        match *self {
-            Victory { .. } => true,
-            _ => false,
-        }
-    }
-
-    #[inline]
-    pub fn is_curse(&self) -> bool {
-        match *self {
-            Curse { .. } => true,
-            _ => false,
-        }
-    }
-
-    #[inline]
-    pub fn is_action(&self) -> bool {
-        match *self {
-            Action { .. } => true,
-            _ => false,
-        }
+    pub fn is(&self, t: CardType) -> bool {
+        (self.typ as uint) & (t as uint) != 0
     }
 
     pub fn create_copies(&'static self, n: int) -> ~[Card] {
@@ -111,16 +92,19 @@ impl CardDef {
 /* Card Definitions */
 pub type Card = &'static CardDef;
 
-pub static COPPER: Card = &'static Money { name: "Copper", cost: 0, value: 1 };
-pub static SILVER: Card = &'static Money { name: "Silver", cost: 3, value: 2 };
-pub static GOLD:   Card = &'static Money { name: "Gold",   cost: 6, value: 3 };
+pub static COPPER: Card = money!("Copper" costs 0 and gives 1 buying power);
+pub static SILVER: Card = money!("Silver" costs 3 and gives 2 buying power);
+pub static GOLD:   Card = money!("Gold" costs 6 and gives 3 buying power);
 
-pub static ESTATE:   Card = &'static Victory { name: "Estate",   cost: 2, points: 1  };
-pub static DUCHY:    Card = &'static Victory { name: "Duchy",    cost: 5, points: 3  };
-pub static PROVINCE: Card = &'static Victory { name: "Province", cost: 8, points: 6  };
-pub static CURSE:    Card = &'static Curse   { name: "Curse",    cost: 0, points: -1 };
+pub static ESTATE:   Card = victory!("Estate" costs 2 and gives 1 victory points);
+pub static DUCHY:    Card = victory!("Duchy" costs 5 and gives 3 victory points);
+pub static PROVINCE: Card = victory!("Province" costs 8 and gives 6 victory points);
 
-pub static CELLAR: Card = &'static Action { name: "Cellar", cost: 2, action: &do_cellar };
+pub static CURSE: Card = &'static CardDef {
+    name: "Curse", cost: 0, vp: -1, value: 0, action: 0 as *ActionFunc, typ: Curse,
+};
+
+pub static CELLAR: Card = action!("Cellar" costs 2 and calls do_cellar);
 fn do_cellar(p: &mut Player, inputs: &[ActionInput]) {
 	p.actions += 1;
 	for to_discard in inputs.iter().filter(|i| i.is_discard()) {
@@ -131,7 +115,7 @@ fn do_cellar(p: &mut Player, inputs: &[ActionInput]) {
 	}
 }
 
-pub static CHAPEL: Card = &'static Action { name: "Chapel", cost: 2, action: &do_chapel };
+pub static CHAPEL: Card = action!("Chapel" costs 2 and calls do_chapel);
 fn do_chapel(p: &mut Player, inputs: &[ActionInput]) {
 	let mut trashed = 0;
 	for to_trash in inputs.iter().filter(|i| i.is_trash()) {
@@ -145,14 +129,14 @@ fn do_chapel(p: &mut Player, inputs: &[ActionInput]) {
 	}
 }
 
-pub static SMITHY: Card = &'static Action { name: "Smithy", cost: 3, action: &do_smithy };
+pub static SMITHY: Card = action!("Smithy" costs 3 and calls do_smithy);
 fn do_smithy(p: &mut Player, _: &[ActionInput]) {
     for _ in range(0, 3) {
         p.draw();
     }
 }
 
-pub static WITCH: Card = &'static Action { name: "Witch", cost: 5, action: &do_witch };
+pub static WITCH: Card = action!("Witch" costs 5 and calls do_witch);
 fn do_witch(p: &mut Player, _: &[ActionInput]) {
     for _ in range(0, 2) {
         p.draw();

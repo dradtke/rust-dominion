@@ -1,5 +1,6 @@
 #[feature(struct_variant)];
 #[feature(macro_rules)];
+#[feature(default_type_params)];
 #[allow(dead_code)];
 
 extern crate collections;

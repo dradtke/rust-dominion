@@ -18,6 +18,18 @@ macro_rules! unwrap_or_err(
 	});
 )
 
+macro_rules! with_rc(
+    ($val:expr, $f:expr) => (
+        $val.borrow().with($f)
+    )
+)
+
+macro_rules! with_mut_rc(
+    ($val:expr, $f:expr) => (
+        $val.borrow().with_mut($f)
+    )
+)
+
 pub type Supply = HashMap<card::Card, uint>;
 pub type PlayerFunc = fn(&mut Player);
 
@@ -46,7 +58,7 @@ pub fn play_game(p: ~[(~str, PlayerFunc)]) -> Option<~str> {
         let players_cell = players_rc.borrow();
         let mut player = players_cell.with_mut(|ps| ps.pop_front().unwrap());
         take_turn(&mut player);
-        let done = game_rc.borrow().with_mut(|game| {
+        let done = with_mut_rc!(game_rc, |game| {
             if *game.supply.find(&card::PROVINCE).unwrap() == 0 {
                 true
             } else {
@@ -190,8 +202,8 @@ impl Player {
 	// currently in the player's hand.
 	pub fn get_available_money(&self) -> uint {
 		self.hand.iter()
-			.filter(|&c| c.is_money())
-			.fold(0, |a, &b| a + b.get_value())
+			.filter(|&c| c.is(card::Money))
+			.fold(0, |a, &b| a + b.value)
 	}
 
 	// get_buying_power() returns the current available buying power from
@@ -206,8 +218,8 @@ impl Player {
 		self.deck.iter()
 			.chain(self.discard.iter())
 			.chain(self.hand.iter())
-			.filter(|&c| c.is_victory() || c.is_curse())
-			.fold(0, |a, &b| a + b.get_points())
+			.filter(|&c| c.is(card::Victory) || c.is(card::Curse))
+			.fold(0, |a, &b| a + b.vp)
 	}
 
 	// get_hand() returns a copy of the player's hand. The Card type
@@ -257,33 +269,32 @@ impl Player {
 	// card is played, then the player's action count is set to 0.
 	pub fn play_and(&mut self, c: card::Card, input: &[card::ActionInput]) -> Option<error::Error> {
 		let index = unwrap_or_err!(self.hand.iter().position(|&x| x == c), error::InvalidPlay);
+        if !c.is(card::Money) && !c.is(card::Action) {
+            return Some(error::InvalidPlay);
+        }
 		self.in_play.push(self.hand.remove(index).unwrap());
-		match *c {
-			card::Money { value: v, .. } => {
-				self.buying_power += v;
-				self.actions = 0;
-				None
-			},
-			card:: Action { action: a, .. } => {
-				if self.actions == 0 {
-					Some(error::NoActions)
-				} else {
-					unsafe {
-						self.actions -= 1;
-						(*a)(self, input);
-					}
-					None
-				}
-			},
-			_ => Some(error::InvalidPlay),
-		}
+        if c.is(card::Money) {
+            self.buying_power += c.value;
+            self.actions = 0;
+        }
+        if c.is(card::Action) {
+            if self.actions == 0 {
+                return Some(error::NoActions)
+            } else {
+                unsafe {
+                    self.actions -= 1;
+                    (*c.action)(self, input);
+                }
+            }
+        }
+        None
 	}
 
 	// play_all_money() is a utility method that iterates through the player's
 	// hand and calls play() on each money card.
 	pub fn play_all_money(&mut self) {
 		let hand = self.get_hand();
-		for money in hand.iter().filter(|&c| c.is_money()) {
+		for money in hand.iter().filter(|&c| c.is(card::Money)) {
 			self.play(*money);
 		}
 	}
@@ -300,15 +311,14 @@ impl Player {
 		if pile == 0 {
 			return Some(error::EmptyPile);
 		}
-		let need = c.get_cost();
-		if self.buying_power >= need {
+		if self.buying_power >= c.cost {
 			self.with_mut_supply(|supply| supply.insert(c, pile - 1));
 			self.discard.push(c);
 			self.actions = 0;
-			self.buying_power -= need;
+			self.buying_power -= c.cost;
 			None
 		} else {
-			Some(error::NotEnoughMoney(need - self.buying_power))
+			Some(error::NotEnoughMoney(c.cost - self.buying_power))
 		}
 	}
 
@@ -401,7 +411,7 @@ impl Player {
 			None => Some(error::NotInHand),
 			Some((i,_)) => {
 				let card = self.hand.remove(i).unwrap();
-				self.game_rc.borrow().with_mut(|game| {
+                with_mut_rc!(self.game_rc, |game| {
 					game.trash.push(card);
 				});
 				None
@@ -433,11 +443,11 @@ impl Player {
 	}
 
 	fn with_mut_supply<U>(&mut self, f: |&mut Supply| -> U) -> U {
-        self.game_rc.borrow().with_mut(|game| f(&mut game.supply))
+        with_mut_rc!(self.game_rc, |game| f(&mut game.supply))
 	}
 
 	fn with_supply<U>(&mut self, f: |&Supply| -> U) -> U {
-		self.game_rc.borrow().with(|game| f(&game.supply))
+        with_rc!(self.game_rc, |game| f(&game.supply))
 	}
 }
 
