@@ -1,7 +1,19 @@
 
+#[crate_id = "dominion#0.1"];
+#[crate_type = "lib"];
+
+#[feature(struct_variant)];
+#[feature(macro_rules)];
+#[feature(default_type_params)];
+
+extern crate collections;
+extern crate rand;
+
 use collections::{Deque,DList,HashMap};
 use std::cell::RefCell;
+use std::comm;
 use std::rc::Rc;
+use std::vec::Vec;
 use std::mem;
 
 pub mod card;
@@ -20,21 +32,70 @@ macro_rules! unwrap_or_err(
 
 macro_rules! with_rc(
     ($val:expr, $f:expr) => (
-        $val.borrow().with($f)
+        $val.deref().with($f)
     )
 )
 
 macro_rules! with_mut_rc(
     ($val:expr, $f:expr) => (
-        $val.borrow().with_mut($f)
+        $val.deref().with_mut($f)
     )
 )
 
 pub type Supply = HashMap<card::Card, uint>;
 pub type PlayerFunc = fn(&mut Player);
 
-pub fn play_game(p: ~[(~str, PlayerFunc)]) -> Option<~str> {
-    let trash = ~[];
+// play_many() plays a bunch of Dominion games, spawning a new task
+// for each one and printing the results to standard output.
+pub fn play_many(n: uint, p: Vec<(~str, PlayerFunc)>) {
+    println!("Playing {} games...", n);
+    let (reporter, receiver) = comm::channel();
+    for _ in range(0, n) {
+        let reporter = reporter.clone();
+        let p = p.clone();
+        spawn(proc() {
+            let results = play_game(p);
+            // TODO: send more information?
+            let &(ref name1, ref score1) = results.get(0);
+            let &(_, ref score2) = results.get(1);
+            if score1 > score2 {
+                reporter.send(Some(name1.clone()));
+            } else {
+                reporter.send(None);
+            }
+        });
+    }
+
+    let mut scores = HashMap::<~str,uint>::new();
+    let mut ties = 0;
+    for _ in range(0, n) {
+        let winner = receiver.recv();
+        if winner.is_some() {
+            let name = winner.unwrap();
+            if !scores.contains_key(&name) {
+                scores.insert(name, 1);
+            } else {
+                let new_score = scores.get(&name) + 1;
+                scores.insert(name, new_score);
+            }
+        } else {
+            ties += 1;
+        }
+    }
+
+    for key in scores.keys() {
+        println!("{} won {} times", *key, *scores.get(key));
+    }
+    println!("There were {} ties.", ties);
+}
+
+// play_game() playes a single game of Dominion. It takes a vector of tuples,
+// each one containing the name of the player and the algorithm they will use
+// as a function. It plays a game and then returns a vector of tuples with
+// the player's name along with their final score, ordered from highest
+// to lowest.
+pub fn play_game(p: Vec<(~str, PlayerFunc)>) -> Vec<(~str, int)> {
+    let trash = Vec::new();
 
     let mut supply: Supply = HashMap::new();
     supply.insert(card::COPPER,   30);
@@ -55,7 +116,7 @@ pub fn play_game(p: ~[(~str, PlayerFunc)]) -> Option<~str> {
     let players_rc = init(p, &game_rc);
 
     'game: loop {
-        let players_cell = players_rc.borrow();
+        let players_cell = players_rc.deref();
         let mut player = players_cell.with_mut(|ps| ps.pop_front().unwrap());
         take_turn(&mut player);
         let done = with_mut_rc!(game_rc, |game| {
@@ -73,16 +134,12 @@ pub fn play_game(p: ~[(~str, PlayerFunc)]) -> Option<~str> {
         }
     }
 
-    let mut players_ref = players_rc.borrow().borrow_mut();
+    let mut players_ref = players_rc.deref().borrow_mut();
     let players = players_ref.get();
 
     // Calculate the results
-    let mut highest_score = 0;
     for player in players.mut_iter() {
         player.calculate_score();
-        if player.score > highest_score {
-            highest_score = player.score;
-        }
         /*
         println!("{}:", player.name);
         println!("\t{} Estates", player.number_of(card::ESTATE));
@@ -93,37 +150,32 @@ pub fn play_game(p: ~[(~str, PlayerFunc)]) -> Option<~str> {
         */
     }
 
-    let winners = players.iter()
-        .filter(|player| player.score == highest_score)
-        .to_owned_vec();
-
-    if winners.len() == 1 {
-        Some(winners[0].name.clone())
-    } else {
-        // tie
-        None
-    }
+    let mut results = Vec::from_slice(
+        players.iter().map(|player| (player.name.clone(), player.score)).to_owned_vec()
+    );
+    results.sort_by(|&(_, score1), &(_, score2)| score2.cmp(&score1));
+    results
 }
 
-fn init(p: ~[(~str, PlayerFunc)], game_rc: &Rc<RefCell<Game>>) -> Rc<RefCell<DList<Player>>> {
-    let mut deck = ~[];
+fn init(p: Vec<(~str, PlayerFunc)>, game_rc: &Rc<RefCell<Game>>) -> Rc<RefCell<DList<Player>>> {
+    let mut deck = Vec::new();
     deck.push_all_move(card::COPPER.create_copies(7));
     deck.push_all_move(card::ESTATE.create_copies(3));
-    card::shuffle(deck);
+    card::shuffle(deck.as_mut_slice());
 
     let players_rc = Rc::new(RefCell::new(DList::new()));
 
     for (name, func) in p.move_iter() {
-        let mut ps = players_rc.borrow().borrow_mut();
+        let mut ps = players_rc.deref().borrow_mut();
         ps.get().push_back(Player{
             name:          name,
             game_rc:       game_rc.clone(),
             other_players: players_rc.clone(),
             play:          func,
             deck:          deck.clone(),
-            discard:       ~[],
-            in_play:       ~[],
-            hand:          ~[],
+            discard:       Vec::new(),
+            in_play:       Vec::new(),
+            hand:          Vec::new(),
             actions:       0,
             buys:          0,
             buying_power:  0,
@@ -156,7 +208,7 @@ fn get_empty_limit(n: uint) -> uint {
 
 struct Game {
     supply: Supply,
-    trash: ~[card::Card],
+    trash: Vec<card::Card>,
 }
 
 // TODO: find a way to derive Default
@@ -166,12 +218,11 @@ pub struct Player {
 
 	priv name: ~str,
 	priv play: PlayerFunc,
-	//priv player_refs: ~[PlayerRef<'p>],
 
-	priv deck: ~[card::Card],
-	priv discard: ~[card::Card],
-	priv in_play: ~[card::Card],
-	priv hand: ~[card::Card],
+	priv deck: Vec<card::Card>,
+	priv discard: Vec<card::Card>,
+	priv in_play: Vec<card::Card>,
+	priv hand: Vec<card::Card>,
 
 	priv actions: uint,
 	priv buys: uint,
@@ -227,7 +278,7 @@ impl Player {
 	// expensive as if it cloned the card definitions themselves, but
 	// is still more expensive than an implementation using an Arc
 	// or similar utility.
-	pub fn get_hand(&self) -> ~[card::Card] {
+	pub fn get_hand(&self) -> Vec<card::Card> {
 		self.hand.clone()
 	}
 
@@ -383,7 +434,7 @@ impl Player {
 					return;
 				} else {
 					mem::swap(&mut self.deck, &mut self.discard);
-					card::shuffle(self.deck);
+					card::shuffle(self.deck.as_mut_slice());
 					self.draw();
 				}
 			}
@@ -426,19 +477,19 @@ impl Player {
 	}
 
 	fn with_other_players(&mut self, f: |&mut Player|) {
-        let mut r = self.other_players.borrow().borrow_mut();
+        let mut r = self.other_players.deref().borrow_mut();
         for other_player in r.get().mut_iter() {
             f(other_player);
         }
 	}
 
 	fn with_left_player<U>(&mut self, f: |&mut Player| -> U) -> U {
-        let mut r = self.other_players.borrow().borrow_mut();
+        let mut r = self.other_players.deref().borrow_mut();
         f(r.get().mut_iter().next().unwrap())
 	}
 
 	fn with_right_player<U>(&mut self, f: |&mut Player| -> U) -> U {
-        let mut r = self.other_players.borrow().borrow_mut();
+        let mut r = self.other_players.deref().borrow_mut();
         f(r.get().mut_rev_iter().next().unwrap())
 	}
 

@@ -1,7 +1,8 @@
 
 use super::Player;
 use std::hash::Hash;
-use std::rand::{task_rng, Rng};
+use std::vec::Vec;
+use rand::{Rng,task_rng};
 
 macro_rules! money(
     ($name:expr costs $cost:expr and gives $value:expr buying power) => (
@@ -25,7 +26,7 @@ pub fn shuffle(cards: &mut [Card]) {
     task_rng().shuffle_mut(cards);
 }
 
-type ActionFunc = fn(&mut Player, &[ActionInput]);
+pub type ActionFunc = fn(&mut Player, &[ActionInput]);
 
 /*
 #[deriving(Hash,Eq)]
@@ -37,7 +38,7 @@ pub enum CardDef {
 }
 */
 
-#[deriving(Hash)]
+#[deriving(Hash,Eq,Ord)]
 pub enum CardType {
     NoType =  0u,
     Money = 1u,
@@ -46,7 +47,7 @@ pub enum CardType {
     Curse = 8u,
 }
 
-#[deriving(Hash)]
+#[deriving(Hash,Ord)]
 pub struct CardDef {
     name: &'static str,
     cost: uint,
@@ -80,8 +81,8 @@ impl CardDef {
         (self.typ as uint) & (t as uint) != 0
     }
 
-    pub fn create_copies(&'static self, n: int) -> ~[Card] {
-        let mut cards = ~[];
+    pub fn create_copies(&'static self, n: int) -> Vec<Card> {
+        let mut cards = Vec::new();
         for _ in range(0, n) {
             cards.push(self);
         }
