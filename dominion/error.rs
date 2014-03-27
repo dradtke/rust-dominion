@@ -1,4 +1,5 @@
 
+#[deriving(Show)]
 pub enum Error {
     NoActions,
     NoBuys,

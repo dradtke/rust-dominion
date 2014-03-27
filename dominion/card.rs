@@ -286,40 +286,69 @@ fn do_adventurer(p: &mut Player, _: &[ActionInput]) {
 
 #[cfg(test)]
 mod tests {
-    fn dont_play(p: &mut Player) {
+    use collections::{DList,HashMap};
+    use std::cell::RefCell;
+    use std::rc::Rc;
+    use std::vec::Vec;
+
+    macro_rules! assert_no_error(
+        ($val:expr) => (
+            match $val {
+                None => (),
+                Some(err) => match err {
+                    super::super::error::InvalidPlay => fail!("Invalid play!"),
+                    super::super::error::NoActions => fail!("No actions left!"),
+                    _ => fail!("Unknown error!"),
+                },
+            }
+        )
+    )
+
+    fn dont_play(_: &mut super::super::Player) {
     }
 
-    fn setup() -> Player {
+    fn setup(hand: Vec<super::super::Card>, deck: Vec<super::super::Card>) -> super::super::Player {
         let trash = Vec::new();
 
-        let mut supply: Supply = HashMap::new();
-        supply.insert(card::COPPER,   30);
-        supply.insert(card::SILVER,   30);
-        supply.insert(card::GOLD,     30);
-        supply.insert(card::ESTATE,   12);
-        supply.insert(card::DUCHY,    12);
-        supply.insert(card::PROVINCE, 12);
-        supply.insert(card::CURSE,    30);
-        supply.insert(card::SMITHY,   10);
-        supply.insert(card::WITCH,    10);
+        let mut supply: super::super::Supply = HashMap::new();
+        supply.insert(super::COPPER,   30);
+        supply.insert(super::SILVER,   30);
+        supply.insert(super::GOLD,     30);
+        supply.insert(super::ESTATE,   12);
+        supply.insert(super::DUCHY,    12);
+        supply.insert(super::PROVINCE, 12);
+        supply.insert(super::CURSE,    30);
+        supply.insert(super::SMITHY,   10);
+        supply.insert(super::WITCH,    10);
 
-        let game = Game{ supply: supply, trash: trash };
+        let game = super::super::Game{ supply: supply, trash: trash };
         let game_rc = Rc::new(RefCell::new(game));
         let players_rc = Rc::new(RefCell::new(DList::new()));
 
-        Player{
-            name:          name,
+        super::super::Player{
+            name:          ~"Player",
             game_rc:       game_rc.clone(),
             other_players: players_rc.clone(),
             play:          dont_play,
-            deck:          deck.clone(),
+            deck:          deck,
             discard:       Vec::new(),
             in_play:       Vec::new(),
-            hand:          Vec::new(),
-            actions:       0,
-            buys:          0,
+            hand:          hand,
+            actions:       1,
+            buys:          1,
             buying_power:  0,
             score:         0,
         }
+    }
+
+    #[test]
+    fn test_cellar() {
+        let mut player = setup(vec!(super::CELLAR, super::ESTATE, super::ESTATE, super::COPPER), vec!(super::SILVER, super::GOLD));
+        assert_no_error!(player.play_and(super::CELLAR, vec!(super::super::Discard(super::ESTATE), super::super::Discard(super::ESTATE)).as_slice()));
+        assert_eq!(player.hand.len(), 3);
+        assert_eq!(player.actions, 1);
+        assert!(*player.hand.get(0) == super::COPPER);
+        assert!(*player.hand.get(1) == super::SILVER);
+        assert!(*player.hand.get(2) == super::GOLD);
     }
 }

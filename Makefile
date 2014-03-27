@@ -6,6 +6,13 @@ lib:
 	@mkdir -p build
 	@rustc --out-dir build dominion/mod.rs
 
+test:
+	@echo "Building libdominion tests..."
+	@mkdir -p build
+	@rustc --out-dir build --test dominion/mod.rs
+	@echo "Running..."
+	@build/dominion
+
 example:
 	@echo "Building main..."
 	@rustc -L build main.rs
