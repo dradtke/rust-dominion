@@ -1,6 +1,6 @@
 
 use std::vec::Vec;
-use super::{Card,CardDef,Money,Victory,Curse,Action,ActionInput,Repeat,Player};
+use super::{Card, CardDef, Player, Money, Victory, Action, Curse, ActionInput};
 
 pub static COPPER: Card = &'static CardDef { name: "Copper", cost: 0, types: &'static[Money(1)] };
 pub static SILVER: Card = &'static CardDef { name: "Silver", cost: 3, types: &'static[Money(2)] };
@@ -17,6 +17,8 @@ fn get_province_value(_: &Player) -> int { 6 }
 
 pub static CURSE: Card = &'static CardDef { name: "Curse", cost: 0, types: &'static[Curse(-1)] };
 
+/* ---------------------------- Cellar ---------------------------- */
+
 pub static CELLAR: Card = &'static CardDef { name: "Cellar", cost: 2, types: &'static[Action(do_cellar)] };
 fn do_cellar(p: &mut Player, inputs: &[ActionInput]) {
 	p.actions += 1;
@@ -27,6 +29,8 @@ fn do_cellar(p: &mut Player, inputs: &[ActionInput]) {
 		}
 	}
 }
+
+/* ---------------------------- Chapel ---------------------------- */
 
 pub static CHAPEL: Card = &'static CardDef { name: "Chapel", cost: 2, types: &[Action(do_chapel)] };
 fn do_chapel(p: &mut Player, inputs: &[ActionInput]) {
@@ -42,12 +46,16 @@ fn do_chapel(p: &mut Player, inputs: &[ActionInput]) {
 	}
 }
 
+/* ---------------------------- Moat ---------------------------- */
+
 pub static MOAT: Card = &'static CardDef { name: "Moat", cost: 2, types: &[Action(do_moat)] };
 fn do_moat(p: &mut Player, _: &[ActionInput]) {
     for _ in range(0, 2) {
         p.draw();
     }
 }
+
+/* ---------------------------- Chancellor ---------------------------- */
 
 pub static CHANCELLOR: Card = &'static CardDef { name: "Chancellor", cost: 3, types: &[Action(do_chancellor)] };
 fn do_chancellor(p: &mut Player, inputs: &[ActionInput]) {
@@ -57,17 +65,23 @@ fn do_chancellor(p: &mut Player, inputs: &[ActionInput]) {
     }
 }
 
+/* ---------------------------- Village ---------------------------- */
+
 pub static VILLAGE: Card = &'static CardDef { name: "Village", cost: 3, types: &[Action(do_village)] };
 fn do_village(p: &mut Player, _: &[ActionInput]) {
     p.draw();
     p.actions += 2;
 }
 
+/* ---------------------------- Woodcutter ---------------------------- */
+
 pub static WOODCUTTER: Card = &'static CardDef { name: "Woodcutter", cost: 3, types: &[Action(do_woodcutter)] };
 fn do_woodcutter(p: &mut Player, _: &[ActionInput]) {
     p.buys += 1;
     p.buying_power += 2;
 }
+
+/* ---------------------------- Workshop ---------------------------- */
 
 pub static WORKSHOP: Card = &'static CardDef { name: "Workshop", cost: 3, types: &[Action(do_workshop)] };
 fn do_workshop(p: &mut Player, inputs: &[ActionInput]) {
@@ -76,6 +90,8 @@ fn do_workshop(p: &mut Player, inputs: &[ActionInput]) {
         p.gain(card);
     }
 }
+
+/* ---------------------------- Bureaucrat ---------------------------- */
 
 pub static BUREAUCRAT: Card = &'static CardDef { name: "Bureaucrat", cost: 4, types: &[Action(do_bureaucrat)] };
 fn do_bureaucrat(p: &mut Player, _: &[ActionInput]) {
@@ -89,6 +105,8 @@ fn do_bureaucrat(p: &mut Player, _: &[ActionInput]) {
     });
 }
 
+/* ---------------------------- Feast ---------------------------- */
+
 pub static FEAST: Card = &'static CardDef { name: "Feast", cost: 4, types: &[Action(do_feast)] };
 fn do_feast(p: &mut Player, inputs: &[ActionInput]) {
     p.trash_from_play(FEAST);
@@ -98,10 +116,14 @@ fn do_feast(p: &mut Player, inputs: &[ActionInput]) {
     }
 }
 
+/* ---------------------------- Gardens ---------------------------- */
+
 pub static GARDENS: Card = &'static CardDef { name: "Gardens", cost: 4, types: &[Victory(get_gardens_value)] };
 fn get_gardens_value(p: &Player) -> int {
     (p.deck.len() as int) / 10
 }
+
+/* ---------------------------- Militia ---------------------------- */
 
 pub static MILITIA: Card = &'static CardDef { name: "Militia", cost: 4, types: &[Action(do_militia)] };
 fn do_militia(p: &mut Player, _: &[ActionInput]) {
@@ -117,6 +139,8 @@ fn do_militia(p: &mut Player, _: &[ActionInput]) {
     });
 }
 
+/* ---------------------------- Moneylender ---------------------------- */
+
 pub static MONEYLENDER: Card = &'static CardDef { name: "Moneylender", cost: 4, types: &[Action(do_moneylender)] };
 fn do_moneylender(p: &mut Player, _: &[ActionInput]) {
     if !p.hand_contains(COPPER) {
@@ -125,6 +149,8 @@ fn do_moneylender(p: &mut Player, _: &[ActionInput]) {
     p.trash(COPPER);
     p.buying_power += 3;
 }
+
+/* ---------------------------- Remodel ---------------------------- */
 
 pub static REMODEL: Card = &'static CardDef { name: "Remodel", cost: 4, types: &[Action(do_remodel)] };
 fn do_remodel(p: &mut Player, inputs: &[ActionInput]) {
@@ -140,12 +166,16 @@ fn do_remodel(p: &mut Player, inputs: &[ActionInput]) {
     p.gain(to_gain);
 }
 
+/* ---------------------------- Smithy ---------------------------- */
+
 pub static SMITHY: Card = &'static CardDef { name: "Smithy", cost: 4, types: &[Action(do_smithy)] };
 fn do_smithy(p: &mut Player, _: &[ActionInput]) {
     for _ in range(0, 3) {
         p.draw();
     }
 }
+
+/* ---------------------------- Spy ---------------------------- */
 
 pub static SPY: Card = &'static CardDef { name: "Spy", cost: 4, types: &[Action(do_spy)] };
 fn do_spy(p: &mut Player, _: &[ActionInput]) {
@@ -157,6 +187,8 @@ fn do_spy(p: &mut Player, _: &[ActionInput]) {
     });
     // TODO: do the same thing for yourself
 }
+
+/* ---------------------------- Thief ---------------------------- */
 
 pub static THIEF: Card = &'static CardDef { name: "Thief", cost: 4, types: &[Action(do_thief)] };
 fn do_thief(p: &mut Player, _: &[ActionInput]) {
@@ -183,10 +215,12 @@ fn do_thief(p: &mut Player, _: &[ActionInput]) {
     }
 }
 
+/* ---------------------------- Throne Room ---------------------------- */
+
 pub static THRONE_ROOM: Card = &'static CardDef { name: "Throne Room", cost: 4, types: &[Action(do_throne_room)] };
 fn do_throne_room(p: &mut Player, inputs: &[ActionInput]) {
     let (c, f) = match *inputs.iter().find(|i| i.is_repeat()).unwrap() {
-        Repeat(c, f) => (c, f),
+        super::Repeat(c, f) => (c, f),
         _ => fail!("Invalid Throne Room input!"),
     };
     if !c.is_action() {
@@ -199,6 +233,8 @@ fn do_throne_room(p: &mut Player, inputs: &[ActionInput]) {
     }
 }
 
+/* ---------------------------- Council Room ---------------------------- */
+
 pub static COUNCIL_ROOM: Card = &'static CardDef { name: "Council Room", cost: 5, types: &[Action(do_council_room)] };
 fn do_council_room(p: &mut Player, _: &[ActionInput]) {
     for _ in range(0, 4) {
@@ -210,12 +246,16 @@ fn do_council_room(p: &mut Player, _: &[ActionInput]) {
     });
 }
 
+/* ---------------------------- Festival ---------------------------- */
+
 pub static FESTIVAL: Card = &'static CardDef { name: "Festival", cost: 5, types: &[Action(do_festival)] };
 fn do_festival(p: &mut Player, _: &[ActionInput]) {
     p.actions += 2;
     p.buys += 1;
     p.buying_power += 2;
 }
+
+/* ---------------------------- Laboratory ---------------------------- */
 
 pub static LABORATORY: Card = &'static CardDef { name: "Laboratory", cost: 5, types: &[Action(do_laboratory)] };
 fn do_laboratory(p: &mut Player, _: &[ActionInput]) {
@@ -225,6 +265,8 @@ fn do_laboratory(p: &mut Player, _: &[ActionInput]) {
     p.actions += 1;
 }
 
+/* ---------------------------- Library ---------------------------- */
+
 pub static LIBRARY: Card = &'static CardDef { name: "Library", cost: 5, types: &[Action(do_library)] };
 fn do_library(p: &mut Player, _: &[ActionInput]) {
     // TODO: let the player discard action cards as they draw
@@ -233,6 +275,8 @@ fn do_library(p: &mut Player, _: &[ActionInput]) {
     }
 }
 
+/* ---------------------------- Market ---------------------------- */
+
 pub static MARKET: Card = &'static CardDef { name: "Market", cost: 5, types: &[Action(do_market)] };
 fn do_market(p: &mut Player, _: &[ActionInput]) {
     p.draw();
@@ -240,6 +284,8 @@ fn do_market(p: &mut Player, _: &[ActionInput]) {
     p.buys += 1;
     p.buying_power += 1;
 }
+
+/* ---------------------------- Mine ---------------------------- */
 
 pub static MINE: Card = &'static CardDef { name: "Mine", cost: 5, types: &[Action(do_mine)] };
 fn do_mine(p: &mut Player, inputs: &[ActionInput]) {
@@ -255,6 +301,8 @@ fn do_mine(p: &mut Player, inputs: &[ActionInput]) {
     p.gain_to_hand(to_gain);
 }
 
+/* ---------------------------- Witch ---------------------------- */
+
 pub static WITCH: Card = &'static CardDef { name: "Witch", cost: 5, types: &[Action(do_witch)] };
 fn do_witch(p: &mut Player, _: &[ActionInput]) {
     for _ in range(0, 2) {
@@ -264,6 +312,8 @@ fn do_witch(p: &mut Player, _: &[ActionInput]) {
         other.curse();
     });
 }
+
+/* ---------------------------- Adventurer ---------------------------- */
 
 pub static ADVENTURER: Card = &'static CardDef { name: "Adventurer", cost: 6, types: &[Action(do_adventurer)] };
 fn do_adventurer(p: &mut Player, _: &[ActionInput]) {
@@ -284,11 +334,17 @@ fn do_adventurer(p: &mut Player, _: &[ActionInput]) {
 }
 
 
+/* ---------------------------- Testing ---------------------------- */
+
+
 #[cfg(test)]
 mod tests {
+    use card = super::super::card;
+    use error = super::super::error;
     use collections::{DList,HashMap};
-    use std::cell::RefCell;
+    use super::super::{Card, Player, Supply, Game, Discard};
     use std::rc::Rc;
+    use std::cell::RefCell;
     use std::vec::Vec;
 
     macro_rules! assert_no_error(
@@ -296,36 +352,36 @@ mod tests {
             match $val {
                 None => (),
                 Some(err) => match err {
-                    super::super::error::InvalidPlay => fail!("Invalid play!"),
-                    super::super::error::NoActions => fail!("No actions left!"),
+                    error::InvalidPlay => fail!("Invalid play!"),
+                    error::NoActions => fail!("No actions left!"),
                     _ => fail!("Unknown error!"),
                 },
             }
         )
     )
 
-    fn dont_play(_: &mut super::super::Player) {
+    fn dont_play(_: &mut Player) {
     }
 
-    fn setup(hand: Vec<super::super::Card>, deck: Vec<super::super::Card>) -> super::super::Player {
+    fn setup(hand: Vec<Card>, deck: Vec<Card>) -> Player {
         let trash = Vec::new();
-
-        let mut supply: super::super::Supply = HashMap::new();
-        supply.insert(super::COPPER,   30);
-        supply.insert(super::SILVER,   30);
-        supply.insert(super::GOLD,     30);
-        supply.insert(super::ESTATE,   12);
-        supply.insert(super::DUCHY,    12);
-        supply.insert(super::PROVINCE, 12);
-        supply.insert(super::CURSE,    30);
-        supply.insert(super::SMITHY,   10);
-        supply.insert(super::WITCH,    10);
-
-        let game = super::super::Game{ supply: supply, trash: trash };
+    
+        let mut supply: Supply = HashMap::new();
+        supply.insert(card::COPPER,   30);
+        supply.insert(card::SILVER,   30);
+        supply.insert(card::GOLD,     30);
+        supply.insert(card::ESTATE,   12);
+        supply.insert(card::DUCHY,    12);
+        supply.insert(card::PROVINCE, 12);
+        supply.insert(card::CURSE,    30);
+        supply.insert(card::SMITHY,   10);
+        supply.insert(card::WITCH,    10);
+    
+        let game = Game{ supply: supply, trash: trash };
         let game_rc = Rc::new(RefCell::new(game));
         let players_rc = Rc::new(RefCell::new(DList::new()));
-
-        super::super::Player{
+    
+        Player{
             name:          ~"Player",
             game_rc:       game_rc.clone(),
             other_players: players_rc.clone(),
@@ -343,12 +399,12 @@ mod tests {
 
     #[test]
     fn test_cellar() {
-        let mut player = setup(vec!(super::CELLAR, super::ESTATE, super::ESTATE, super::COPPER), vec!(super::SILVER, super::GOLD));
-        assert_no_error!(player.play_and(super::CELLAR, vec!(super::super::Discard(super::ESTATE), super::super::Discard(super::ESTATE)).as_slice()));
+        let mut player = setup(vec!(card::CELLAR, card::ESTATE, card::ESTATE, card::COPPER), vec!(card::SILVER, card::GOLD));
+        assert_no_error!(player.play_and(card::CELLAR, vec!(Discard(card::ESTATE), Discard(card::ESTATE)).as_slice()));
         assert_eq!(player.hand.len(), 3);
         assert_eq!(player.actions, 1);
-        assert!(*player.hand.get(0) == super::COPPER);
-        assert!(*player.hand.get(1) == super::SILVER);
-        assert!(*player.hand.get(2) == super::GOLD);
+        assert!(*player.hand.get(0) == card::COPPER);
+        assert!(*player.hand.get(1) == card::SILVER);
+        assert!(*player.hand.get(2) == card::GOLD);
     }
 }
