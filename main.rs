@@ -1,7 +1,8 @@
-#[allow(dead_code)];
+#![allow(dead_code)]
 
 extern crate dominion;
 
+use dominion::strat;
 use std::os;
 
 fn main() {
@@ -12,5 +13,5 @@ fn main() {
         1000
     };
 
-    dominion::play_many(n, vec!((~"Damien", dominion::strat::big_money_witch), (~"Georgia", dominion::strat::big_money_smithy)));
+    dominion::play_many(n, vec!((~"Damien", strat::big_money_witch), (~"Georgia", strat::big_money_smithy)));
 }

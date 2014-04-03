@@ -1,10 +1,10 @@
 
-#[crate_id = "dominion#0.1"];
-#[crate_type = "lib"];
+#![crate_id = "dominion#0.1"]
+#![crate_type = "lib"]
 
-#[feature(struct_variant)];
-#[feature(macro_rules)];
-#[feature(default_type_params)];
+#![feature(struct_variant)]
+#![feature(macro_rules)]
+#![feature(default_type_params)]
 
 extern crate collections;
 extern crate rand;
@@ -112,33 +112,30 @@ pub fn play_game(p: Vec<(~str, PlayerFunc)>) -> Vec<(~str, int)> {
     supply.insert(card::SMITHY, 10);
     supply.insert(card::WITCH,  10);
 
-    let game = Game{ supply: supply, trash: trash };
-    let game_rc = Rc::new(RefCell::new(game));
+    let game_rc = Rc::new(RefCell::new(
+            Game{ supply: supply, trash: trash }
+    ));
 
     let empty_limit = get_empty_limit(p.len());
     let players_rc = init(p, &game_rc);
 
-    'game: loop {
-        let players_cell = players_rc.deref();
-        let mut player = players_cell.with_mut(|ps| ps.pop_front().unwrap());
+    loop {
+        let mut player = (*players_rc).borrow_mut().pop_front().unwrap();
         take_turn(&mut player);
-        let done = game_rc.deref().with_mut(|game| {
-            if *game.supply.find(&card::PROVINCE).unwrap() == 0 {
-                true
-            } else {
-                let num_empty = game.supply.values().filter(|x| **x == 0).fold(0, |a, &b| a + b);
-                num_empty >= empty_limit
-            }
-        });
-        let mut players_ref = players_cell.borrow_mut();
-        players_ref.get().push_back(player);
+        let mut game = (*game_rc).borrow_mut();
+        let done = if *game.supply.find(&card::PROVINCE).unwrap() == 0 {
+            true
+        } else {
+            let num_empty = game.supply.values().filter(|x| **x == 0).fold(0, |a, &b| a + b);
+            num_empty >= empty_limit
+        };
+        (*players_rc).borrow_mut().push_back(player);
         if done {
-            break 'game;
+            break;
         }
     }
 
-    let mut players_ref = players_rc.deref().borrow_mut();
-    let players = players_ref.get();
+    let mut players = (*players_rc).borrow_mut();
 
     // Calculate the results
     for player in players.mut_iter() {
@@ -153,9 +150,10 @@ pub fn play_game(p: Vec<(~str, PlayerFunc)>) -> Vec<(~str, int)> {
         */
     }
 
-    let mut results = Vec::from_slice(
-        players.iter().map(|player| (player.name.clone(), player.score)).to_owned_vec()
-    );
+    let mut results = Vec::with_capacity(players.len());
+    for res in players.iter().map(|player| (player.name.clone(), player.score)) {
+        results.push(res);
+    }
     results.sort_by(|&(_, score1), &(_, score2)| score2.cmp(&score1));
     results
 }
@@ -173,8 +171,8 @@ fn init(p: Vec<(~str, PlayerFunc)>, game_rc: &Rc<RefCell<Game>>) -> Rc<RefCell<D
     let players_rc = Rc::new(RefCell::new(DList::new()));
 
     for (name, func) in p.move_iter() {
-        let mut ps = players_rc.deref().borrow_mut();
-        ps.get().push_back(Player{
+        let mut ps = (*players_rc).borrow_mut();
+        ps.push_back(Player{
             name:          name,
             game_rc:       game_rc.clone(),
             other_players: players_rc.clone(),
@@ -527,9 +525,7 @@ impl Player {
 			None => Some(error::NotInHand),
 			Some((i,_)) => {
 				let card = self.hand.remove(i).unwrap();
-                self.game_rc.deref().with_mut(|game| {
-					game.trash.push(card);
-				});
+                (*self.game_rc).borrow_mut().trash.push(card);
 				None
 			},
 		}
@@ -540,9 +536,7 @@ impl Player {
 			None => Some(error::NotInHand),
 			Some((i,_)) => {
 				let card = self.in_play.remove(i).unwrap();
-                self.game_rc.deref().with_mut(|game| {
-					game.trash.push(card);
-				});
+                (*self.game_rc).borrow_mut().trash.push(card);
 				None
 			},
 		}
@@ -555,8 +549,7 @@ impl Player {
 	}
 
 	fn with_other_players(&mut self, f: |&mut Player|) {
-        let mut r = self.other_players.deref().borrow_mut();
-        for other_player in r.get().mut_iter() {
+        for other_player in (*self.other_players).borrow_mut().mut_iter() {
             f(other_player);
         }
 	}
@@ -564,8 +557,7 @@ impl Player {
     // attack() calls f on each other player, but only if they don't
     // have a Moat in hand.
     fn attack(&mut self, f: |&mut Player|) {
-        let mut r = self.other_players.deref().borrow_mut();
-        for other_player in r.get().mut_iter() {
+        for other_player in (*self.other_players).borrow_mut().mut_iter() {
             if other_player.hand_contains(card::MOAT) {
                 continue;
             }
@@ -575,22 +567,20 @@ impl Player {
 
     #[allow(dead_code)]
 	fn with_left_player<U>(&mut self, f: |&mut Player| -> U) -> U {
-        let mut r = self.other_players.deref().borrow_mut();
-        f(r.get().mut_iter().next().unwrap())
+        f((*self.other_players).borrow_mut().mut_iter().next().unwrap())
 	}
 
     #[allow(dead_code)]
 	fn with_right_player<U>(&mut self, f: |&mut Player| -> U) -> U {
-        let mut r = self.other_players.deref().borrow_mut();
-        f(r.get().mut_rev_iter().next().unwrap())
+        f((*self.other_players).borrow_mut().mut_rev_iter().next().unwrap())
 	}
 
 	fn with_mut_supply<U>(&mut self, f: |&mut Supply| -> U) -> U {
-        self.game_rc.deref().with_mut(|game| f(&mut game.supply))
+        f(&mut (*self.game_rc).borrow_mut().supply)
 	}
 
 	fn with_supply<U>(&mut self, f: |&Supply| -> U) -> U {
-        self.game_rc.deref().with(|game| f(&game.supply))
+        f(&(*self.game_rc).borrow_mut().supply)
 	}
 }
 
@@ -618,17 +608,13 @@ impl hash::Hash for CardDef {
     }
 }
 
-impl TotalEq for CardDef {
-	fn equals(&self, other: &CardDef) -> bool {
-		self.name.equals(&other.name)
+impl Eq for CardDef {
+	fn eq(&self, other: &CardDef) -> bool {
+		self.name.eq(&other.name)
 	}
 }
 
-impl Eq for CardDef {
-	fn eq(&self, other: &CardDef) -> bool {
-		self.name.equals(&other.name)
-	}
-}
+impl TotalEq for CardDef { }
 
 impl CardDef {
     fn create_copies(&'static self, n: int) -> Vec<Card> {
