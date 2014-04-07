@@ -1,8 +1,9 @@
 #![allow(dead_code)]
+#![feature(macro_rules)]
+#![feature(phase)]
 
-extern crate dominion;
+#[phase(syntax, link)] extern crate dominion;
 
-use dominion::strat;
 use std::os;
 
 fn main() {
@@ -13,5 +14,5 @@ fn main() {
         1000
     };
 
-    dominion::play_many(n, vec!((~"Damien", strat::big_money_witch), (~"Georgia", strat::big_money_smithy)));
+    play_many!(n games with damien and georgia);
 }

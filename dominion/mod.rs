@@ -1,10 +1,6 @@
-
 #![crate_id = "dominion#0.1"]
 #![crate_type = "lib"]
-
-#![feature(struct_variant)]
 #![feature(macro_rules)]
-#![feature(default_type_params)]
 
 extern crate collections;
 extern crate rand;
@@ -16,12 +12,19 @@ use std::hash;
 use std::mem;
 use std::rc::Rc;
 use std::vec::Vec;
-
 use rand::{Rng,task_rng};
 
-pub mod card;
-pub mod error;
-pub mod strat;
+#[macro_export]
+macro_rules! play_many(
+    ($n:expr games with $($name:ident)and+) => ({
+        let mut players = Vec::new();
+        $(
+            mod $name;
+            players.push(($name::name(), $name::play));
+        )+
+        dominion::play_many($n, players);
+    })
+)
 
 macro_rules! unwrap_or_err(
 	($val:expr else $err:expr) => ({
@@ -43,6 +46,10 @@ macro_rules! card_count(
         }
     });
 )
+
+pub mod card;
+pub mod error;
+pub mod strat;
 
 
 /* ------------------------ Public Methods ------------------------ */
@@ -212,7 +219,7 @@ fn get_empty_limit(n: uint) -> uint {
 }
 
 fn shuffle(cards: &mut [Card]) {
-    task_rng().shuffle_mut(cards);
+    task_rng().shuffle(cards);
 }
 
 
@@ -226,21 +233,21 @@ struct Game {
 
 // TODO: find a way to derive Default
 pub struct Player {
-    priv game_rc: Rc<RefCell<Game>>,
-    priv other_players: Rc<RefCell<DList<Player>>>,
+    game_rc: Rc<RefCell<Game>>,
+    other_players: Rc<RefCell<DList<Player>>>,
 
-	priv name: ~str,
-	priv play: PlayerFunc,
+	name: ~str,
+	play: PlayerFunc,
 
-	priv deck: Vec<Card>,
-	priv discard: Vec<Card>,
-	priv in_play: Vec<Card>,
-	priv hand: Vec<Card>,
+	deck: Vec<Card>,
+	discard: Vec<Card>,
+	in_play: Vec<Card>,
+	hand: Vec<Card>,
 
-	priv actions: uint,
-	priv buys: uint,
-	priv buying_power: uint,
-	priv score: int, // for calculating the final score
+	actions: uint,
+	buys: uint,
+	buying_power: uint,
+	score: int, // for calculating the final score
 }
 
 
