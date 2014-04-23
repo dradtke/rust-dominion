@@ -1,5 +1,5 @@
 
-use super::{Player};
+use super::PlayerState;
 use super::card;
 
 // Big Money is the most basic Dominion strategy. It focuses only on buying
@@ -9,7 +9,7 @@ use super::card;
 //   3. With 3-4 money, buy a silver
 //   4. With 5 money, if there are five or fewer provinces left, buy a duchy.
 //        Otherwise, buy a silver.
-pub fn big_money(p: &mut Player) {
+pub fn big_money(p: &mut PlayerState) {
     p.play_all_money();
     match p.get_buying_power() {
         0..2 => None,
@@ -26,7 +26,7 @@ pub fn big_money(p: &mut Player) {
     };
 }
 
-pub fn big_money_smithy(p: &mut Player) {
+pub fn big_money_smithy(p: &mut PlayerState) {
     if p.hand_contains(card::SMITHY) {
         p.play(card::SMITHY);
     }
@@ -53,7 +53,7 @@ pub fn big_money_smithy(p: &mut Player) {
     };
 }
 
-pub fn big_money_witch(p: &mut Player) {
+pub fn big_money_witch(p: &mut PlayerState) {
     if p.hand_contains(card::WITCH) {
         p.play(card::WITCH);
     }
@@ -76,6 +76,6 @@ pub fn big_money_witch(p: &mut Player) {
     };
 }
 
-pub fn cellaring(p: &mut Player) {
+pub fn cellaring(p: &mut PlayerState) {
 	p.play(card::CELLAR);
 }

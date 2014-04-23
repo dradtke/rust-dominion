@@ -4,6 +4,7 @@
 
 extern crate collections;
 extern crate rand;
+extern crate sync;
 
 use collections::{Deque,DList,HashMap};
 use std::cell::RefCell;
@@ -13,17 +14,13 @@ use std::mem;
 use std::rc::Rc;
 use std::vec::Vec;
 use rand::{Rng,task_rng};
+use sync::Arc;
 
 #[macro_export]
-macro_rules! play_many(
-    ($n:expr games with $($name:ident)and+) => ({
-        let mut players = Vec::new();
-        $(
-            mod $name;
-            players.push(($name::name(), $name::play));
-        )+
-        dominion::play_many($n, players);
-    })
+macro_rules! players(
+    ($($player:ident),+) => (
+        ~[$(~$player as ~PlayerLike:Send+Share,)+]
+    )
 )
 
 macro_rules! unwrap_or_err(
@@ -54,17 +51,22 @@ pub mod strat;
 
 /* ------------------------ Public Methods ------------------------ */
 
+pub trait PlayerLike {
+    fn name(&self) -> ~str;
+    fn play(&self, p: &mut PlayerState);
+}
 
 // play_many() plays a bunch of Dominion games, spawning a new task
 // for each one and printing the results to standard output.
-pub fn play_many(n: uint, p: Vec<(~str, PlayerFunc)>) {
+pub fn play_many(n: uint, player_defs: ~[~PlayerLike:Send+Share]) {
     println!("Playing {} games...", n);
     let (reporter, receiver) = comm::channel();
+    let defs: ~[Arc<~PlayerLike:Send+Share>] = FromIterator::from_iter(player_defs.move_iter().map(|p| Arc::new(p)));
     for _ in range(0, n) {
         let reporter = reporter.clone();
-        let p = p.clone();
+        let defs = defs.clone();
         spawn(proc() {
-            let results = play_game(p);
+            let results = play_game(defs);
             // TODO: send more information?
             let &(ref name1, ref score1) = results.get(0);
             let &(_, ref score2) = results.get(1);
@@ -104,7 +106,7 @@ pub fn play_many(n: uint, p: Vec<(~str, PlayerFunc)>) {
 // as a function. It plays a game and then returns a vector of tuples with
 // the player's name along with their final score, ordered from highest
 // to lowest.
-pub fn play_game(p: Vec<(~str, PlayerFunc)>) -> Vec<(~str, int)> {
+pub fn play_game(player_defs: ~[Arc<~PlayerLike:Send+Share>]) -> Vec<(~str, int)> {
     let trash = Vec::new();
 
     let mut supply: Supply = HashMap::new();
@@ -119,34 +121,22 @@ pub fn play_game(p: Vec<(~str, PlayerFunc)>) -> Vec<(~str, int)> {
     supply.insert(card::SMITHY, 10);
     supply.insert(card::WITCH,  10);
 
-    let game_rc = Rc::new(RefCell::new(
-            Game{ supply: supply, trash: trash }
-    ));
-
-    let empty_limit = get_empty_limit(p.len());
-    let players_rc = init(p, &game_rc);
+    let game = Rc::new(RefCell::new(Game{ supply: supply, trash: trash }));
+    let empty_limit = get_empty_limit(player_defs.len());
+    let players = init_players(player_defs, &game);
 
     loop {
-        let mut player = (*players_rc).borrow_mut().pop_front().unwrap();
-        take_turn(&mut player);
-        let mut game = (*game_rc).borrow_mut();
-        let done = if *game.supply.find(&card::PROVINCE).unwrap() == 0 {
-            true
-        } else {
-            let num_empty = game.supply.values().filter(|x| **x == 0).fold(0, |a, &b| a + b);
-            num_empty >= empty_limit
-        };
-        (*players_rc).borrow_mut().push_back(player);
-        if done {
+        let (def, mut state) = (*players).borrow_mut().pop_front().unwrap();
+        take_turn(&mut state, *def);
+        (*players).borrow_mut().push_back((def, state));
+        if is_game_finished(&game, empty_limit) {
             break;
         }
     }
 
-    let mut players = (*players_rc).borrow_mut();
-
     // Calculate the results
-    for player in players.mut_iter() {
-        player.calculate_score();
+    for &(_, ref mut state) in (*players).borrow_mut().mut_iter() {
+        state.calculate_score();
         /*
         println!("{}:", player.name);
         println!("\t{} Estates", player.number_of(card::ESTATE));
@@ -157,8 +147,8 @@ pub fn play_game(p: Vec<(~str, PlayerFunc)>) -> Vec<(~str, int)> {
         */
     }
 
-    let mut results = Vec::with_capacity(players.len());
-    for res in players.iter().map(|player| (player.name.clone(), player.score)) {
+    let mut results = Vec::with_capacity((*players).borrow().len());
+    for res in (*players).borrow().iter().map(|&(ref def, ref state)| (def.name().clone(), state.score)) {
         results.push(res);
     }
     results.sort_by(|&(_, score1), &(_, score2)| score2.cmp(&score1));
@@ -169,21 +159,21 @@ pub fn play_game(p: Vec<(~str, PlayerFunc)>) -> Vec<(~str, int)> {
 /* ------------------------ Private Methods ------------------------ */
 
 
-fn init(p: Vec<(~str, PlayerFunc)>, game_rc: &Rc<RefCell<Game>>) -> Rc<RefCell<DList<Player>>> {
+// init_players() takes a list of definitions and a shared pointer to the shared Game reference
+// and constructs a reference to a DList containing all of the players.
+fn init_players(player_defs: ~[Arc<~PlayerLike:Send+Share>], game_ref: &Rc<RefCell<Game>>) -> Rc<RefCell<DList<Player>>> {
     let mut deck = Vec::new();
     deck.push_all_move(card::COPPER.create_copies(7));
     deck.push_all_move(card::ESTATE.create_copies(3));
     shuffle(deck.as_mut_slice());
 
-    let players_rc = Rc::new(RefCell::new(DList::new()));
+    let players_rc = Rc::new(RefCell::new(DList::<Player>::new()));
 
-    for (name, func) in p.move_iter() {
+    for def in player_defs.move_iter() {
         let mut ps = (*players_rc).borrow_mut();
-        ps.push_back(Player{
-            name:          name,
-            game_rc:       game_rc.clone(),
+        ps.push_back((def, PlayerState{
+            game_ref:      game_ref.clone(),
             other_players: players_rc.clone(),
-            play:          func,
             deck:          deck.clone(),
             discard:       Vec::new(),
             in_play:       Vec::new(),
@@ -192,17 +182,17 @@ fn init(p: Vec<(~str, PlayerFunc)>, game_rc: &Rc<RefCell<Game>>) -> Rc<RefCell<D
             buys:          0,
             buying_power:  0,
             score:         0,
-        });
+        }));
     }
     players_rc
 }
 
-fn take_turn(player: &mut Player) {
+fn take_turn(player: &mut PlayerState, def: &PlayerLike) {
     player.new_hand();
     player.actions = 1;
     player.buys = 1;
     player.buying_power = 0;
-    (player.play)(player);
+    def.play(player);
     player.discard_hand();
 }
 
@@ -215,6 +205,15 @@ fn get_empty_limit(n: uint) -> uint {
     match n {
         2..4 => 3,
         _ => 4,
+    }
+}
+
+fn is_game_finished(game: &Rc<RefCell<Game>>, empty_limit: uint) -> bool {
+    if *(*game).borrow().supply.find(&card::PROVINCE).unwrap() == 0 {
+        true
+    } else {
+        let num_empty = (*game).borrow().supply.values().filter(|&x| *x == 0).fold(0, |a, &b| a + b);
+        num_empty >= empty_limit
     }
 }
 
@@ -232,12 +231,9 @@ struct Game {
 }
 
 // TODO: find a way to derive Default
-pub struct Player {
-    game_rc: Rc<RefCell<Game>>,
+pub struct PlayerState {
+    game_ref: Rc<RefCell<Game>>,
     other_players: Rc<RefCell<DList<Player>>>,
-
-	name: ~str,
-	play: PlayerFunc,
 
 	deck: Vec<Card>,
 	discard: Vec<Card>,
@@ -251,24 +247,7 @@ pub struct Player {
 }
 
 
-impl Eq for Player {
-	fn eq(&self, other: &Player) -> bool {
-		self.name == other.name
-	}
-}
-
-
-impl Player {
-	// get_name() returns the name of this player. The reassignment to a
-	// borrowed pointer is necessary because otherwise an error is thrown
-	// when the method finds `~str` instead of `&'a str`. The lifetime
-	// parameter tells the compiler that the borrowed name has the same
-	// lifetime as the Player it's owned by.
-	pub fn get_name<'a>(&'a self) -> &'a str {
-		let name: &str = self.name;
-		name
-	}
-
+impl PlayerState {
 	// get_available_money() returns a count of the total available money
 	// currently in the player's hand.
 	pub fn get_available_money(&self) -> uint {
@@ -532,7 +511,7 @@ impl Player {
 			None => Some(error::NotInHand),
 			Some((i,_)) => {
 				let card = self.hand.remove(i).unwrap();
-                (*self.game_rc).borrow_mut().trash.push(card);
+                (*self.game_ref).borrow_mut().trash.push(card);
 				None
 			},
 		}
@@ -543,7 +522,7 @@ impl Player {
 			None => Some(error::NotInHand),
 			Some((i,_)) => {
 				let card = self.in_play.remove(i).unwrap();
-                (*self.game_rc).borrow_mut().trash.push(card);
+                (*self.game_ref).borrow_mut().trash.push(card);
 				None
 			},
 		}
@@ -555,16 +534,16 @@ impl Player {
 		self.score = self.get_total_points();
 	}
 
-	fn with_other_players(&mut self, f: |&mut Player|) {
-        for other_player in (*self.other_players).borrow_mut().mut_iter() {
+	fn with_other_players(&mut self, f: |&mut PlayerState|) {
+        for &(_, ref mut other_player) in (*self.other_players).borrow_mut().mut_iter() {
             f(other_player);
         }
 	}
 
     // attack() calls f on each other player, but only if they don't
     // have a Moat in hand.
-    fn attack(&mut self, f: |&mut Player|) {
-        for other_player in (*self.other_players).borrow_mut().mut_iter() {
+    fn attack(&mut self, f: |&mut PlayerState|) {
+        for &(_, ref mut other_player) in (*self.other_players).borrow_mut().mut_iter() {
             if other_player.hand_contains(card::MOAT) {
                 continue;
             }
@@ -572,22 +551,24 @@ impl Player {
         }
     }
 
+    /*
     #[allow(dead_code)]
-	fn with_left_player<U>(&mut self, f: |&mut Player| -> U) -> U {
+	fn with_left_player<U>(&mut self, f: |&mut PlayerState| -> U) -> U {
         f((*self.other_players).borrow_mut().mut_iter().next().unwrap())
 	}
 
     #[allow(dead_code)]
-	fn with_right_player<U>(&mut self, f: |&mut Player| -> U) -> U {
+	fn with_right_player<U>(&mut self, f: |&mut PlayerState| -> U) -> U {
         f((*self.other_players).borrow_mut().mut_rev_iter().next().unwrap())
 	}
+    */
 
 	fn with_mut_supply<U>(&mut self, f: |&mut Supply| -> U) -> U {
-        f(&mut (*self.game_rc).borrow_mut().supply)
+        f(&mut (*self.game_ref).borrow_mut().supply)
 	}
 
 	fn with_supply<U>(&mut self, f: |&Supply| -> U) -> U {
-        f(&(*self.game_rc).borrow_mut().supply)
+        f(&(*self.game_ref).borrow_mut().supply)
 	}
 }
 
@@ -675,7 +656,7 @@ impl CardDef {
         fail!("Can't get treasure value of non-Money card!");
     }
 
-    pub fn victory_points(&self, p: &Player) -> int {
+    pub fn victory_points(&self, p: &PlayerState) -> int {
         for t in self.types.iter() {
             match *t {
                 Victory(f) => return f(p),
@@ -703,7 +684,7 @@ pub enum ActionInput {
 	Trash(Card),
 	Gain(Card),
     Confirm, // for "you may" effects, e.g. Chancellor
-    Repeat(Card, fn(&Player, uint) -> Vec<ActionInput>), // for "play several times" effects, e.g. Throne Room
+    Repeat(Card, fn(&PlayerState, uint) -> Vec<ActionInput>), // for "play several times" effects, e.g. Throne Room
 }
 
 impl ActionInput {
@@ -755,7 +736,8 @@ impl ActionInput {
 /* ------------------------ Misc Types ------------------------ */
 
 type Supply = HashMap<Card, uint>;
-type ActionFunc = fn(&mut Player, &[ActionInput]);
-type VictoryFunc = fn(&Player) -> int;
+type ActionFunc = fn(&mut PlayerState, &[ActionInput]);
+type VictoryFunc = fn(&PlayerState) -> int;
 pub type Card = &'static CardDef;
-pub type PlayerFunc = fn(&mut Player);
+pub type PlayerFunc = fn(&mut PlayerState);
+pub type Player = (Arc<~PlayerLike:Send+Share>, PlayerState);

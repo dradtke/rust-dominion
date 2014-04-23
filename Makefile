@@ -18,6 +18,6 @@ example:
 	@rustc -L build main.rs
 
 clean:
-	@echo "Cleaning..."; rm -rf main build
+	@echo "Cleaning..."; rm -rf main main.exe build
 
 .PHONY: lib example all clean
