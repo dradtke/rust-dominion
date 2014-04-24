@@ -17,13 +17,38 @@ use rand::{Rng,task_rng};
 use sync::Arc;
 
 #[macro_export]
+macro_rules! play(
+    ($($player:ident),+) => ({
+        let args = std::os::args();
+        let n: uint = if args.len() > 1 { from_str(args[1]).unwrap() } else { 1000 };
+        dominion::play(n, ~[$(~$player as ~dominion::Player:Send+Share,)+]);
+    })
+)
+
+#[macro_export]
+macro_rules! new_player(
+    ($player:ident, $func:expr) => {
+        struct $player;
+        impl dominion::Player for $player {
+            fn name(&self) -> &'static str {
+                stringify!($player)
+            }
+
+            fn play(&self, p: &mut dominion::PlayerState) {
+                $func(p);
+            }
+        }
+    }
+)
+
+#[macro_export]
 macro_rules! players(
     ($($player:ident),+) => (
-        ~[$(~$player as ~PlayerLike:Send+Share,)+]
+        ~[$(~$player as ~dominion::Player:Send+Share,)+]
     )
 )
 
-macro_rules! unwrap_or_err(
+macro_rules! unwrap(
 	($val:expr else $err:expr) => ({
 		match $val {
 			None => return Some($err),
@@ -35,7 +60,7 @@ macro_rules! unwrap_or_err(
 
 macro_rules! card_count(
     ($p:expr, $c:expr) => ({
-		let pile = unwrap_or_err!($p.count($c) else error::NotInSupply);
+		let pile = unwrap!($p.count($c) else error::NotInSupply);
 		if pile == 0 {
 			return Some(error::EmptyPile);
 		} else {
@@ -51,17 +76,17 @@ pub mod strat;
 
 /* ------------------------ Public Methods ------------------------ */
 
-pub trait PlayerLike {
-    fn name(&self) -> ~str;
+pub trait Player {
+    fn name(&self) -> &'static str;
     fn play(&self, p: &mut PlayerState);
 }
 
-// play_many() plays a bunch of Dominion games, spawning a new task
+// play() is the entry point for Dominion games, spawning a new task
 // for each one and printing the results to standard output.
-pub fn play_many(n: uint, player_defs: ~[~PlayerLike:Send+Share]) {
+pub fn play(n: uint, player_defs: ~[~Player:Send+Share]) {
     println!("Playing {} games...", n);
     let (reporter, receiver) = comm::channel();
-    let defs: ~[Arc<~PlayerLike:Send+Share>] = FromIterator::from_iter(player_defs.move_iter().map(|p| Arc::new(p)));
+    let defs: ~[Arc<~Player:Send+Share>] = FromIterator::from_iter(player_defs.move_iter().map(|p| Arc::new(p)));
     for _ in range(0, n) {
         let reporter = reporter.clone();
         let defs = defs.clone();
@@ -71,7 +96,7 @@ pub fn play_many(n: uint, player_defs: ~[~PlayerLike:Send+Share]) {
             let &(ref name1, ref score1) = results.get(0);
             let &(_, ref score2) = results.get(1);
             if score1 > score2 {
-                reporter.send(Some(name1.clone()));
+                reporter.send(Some(name1.into_owned()));
             } else {
                 reporter.send(None);
             }
@@ -101,12 +126,14 @@ pub fn play_many(n: uint, player_defs: ~[~PlayerLike:Send+Share]) {
     println!("There were {} ties.", ties);
 }
 
-// play_game() playes a single game of Dominion. It takes a vector of tuples,
-// each one containing the name of the player and the algorithm they will use
-// as a function. It plays a game and then returns a vector of tuples with
-// the player's name along with their final score, ordered from highest
-// to lowest.
-pub fn play_game(player_defs: ~[Arc<~PlayerLike:Send+Share>]) -> Vec<(~str, int)> {
+
+/* ------------------------ Private Methods ------------------------ */
+
+
+// play_game() playes a single game of Dominion. It plays a game and then
+// returns a vector of tuples with the player's name along with their final
+// score, ordered from highest to lowest.
+fn play_game(player_defs: ~[Arc<~Player:Send+Share>]) -> Vec<(&str, int)> {
     let trash = Vec::new();
 
     let mut supply: Supply = HashMap::new();
@@ -121,7 +148,7 @@ pub fn play_game(player_defs: ~[Arc<~PlayerLike:Send+Share>]) -> Vec<(~str, int)
     supply.insert(card::SMITHY, 10);
     supply.insert(card::WITCH,  10);
 
-    let game = Rc::new(RefCell::new(Game{ supply: supply, trash: trash }));
+    let game = Rc::new(RefCell::new(GameState{ supply: supply, trash: trash }));
     let empty_limit = get_empty_limit(player_defs.len());
     let players = init_players(player_defs, &game);
 
@@ -156,24 +183,21 @@ pub fn play_game(player_defs: ~[Arc<~PlayerLike:Send+Share>]) -> Vec<(~str, int)
 }
 
 
-/* ------------------------ Private Methods ------------------------ */
-
-
-// init_players() takes a list of definitions and a shared pointer to the shared Game reference
+// init_players() takes a list of definitions and a shared pointer to the shared GameState reference
 // and constructs a reference to a DList containing all of the players.
-fn init_players(player_defs: ~[Arc<~PlayerLike:Send+Share>], game_ref: &Rc<RefCell<Game>>) -> Rc<RefCell<DList<Player>>> {
+fn init_players(player_defs: ~[Arc<~Player:Send+Share>], game_ref: &Rc<RefCell<GameState>>) -> Rc<RefCell<DList<PlayerTup>>> {
     let mut deck = Vec::new();
     deck.push_all_move(card::COPPER.create_copies(7));
     deck.push_all_move(card::ESTATE.create_copies(3));
     shuffle(deck.as_mut_slice());
 
-    let players_rc = Rc::new(RefCell::new(DList::<Player>::new()));
+    let players = Rc::new(RefCell::new(DList::<PlayerTup>::new()));
 
     for def in player_defs.move_iter() {
-        let mut ps = (*players_rc).borrow_mut();
+        let mut ps = (*players).borrow_mut();
         ps.push_back((def, PlayerState{
             game_ref:      game_ref.clone(),
-            other_players: players_rc.clone(),
+            other_players: players.clone(),
             deck:          deck.clone(),
             discard:       Vec::new(),
             in_play:       Vec::new(),
@@ -184,10 +208,10 @@ fn init_players(player_defs: ~[Arc<~PlayerLike:Send+Share>], game_ref: &Rc<RefCe
             score:         0,
         }));
     }
-    players_rc
+    players
 }
 
-fn take_turn(player: &mut PlayerState, def: &PlayerLike) {
+fn take_turn(player: &mut PlayerState, def: &Player) {
     player.new_hand();
     player.actions = 1;
     player.buys = 1;
@@ -208,7 +232,7 @@ fn get_empty_limit(n: uint) -> uint {
     }
 }
 
-fn is_game_finished(game: &Rc<RefCell<Game>>, empty_limit: uint) -> bool {
+fn is_game_finished(game: &Rc<RefCell<GameState>>, empty_limit: uint) -> bool {
     if *(*game).borrow().supply.find(&card::PROVINCE).unwrap() == 0 {
         true
     } else {
@@ -225,15 +249,15 @@ fn shuffle(cards: &mut [Card]) {
 /* ------------------------ Game and Player Types ------------------------ */
 
 
-struct Game {
+struct GameState {
     supply: Supply,
     trash: Vec<Card>,
 }
 
 // TODO: find a way to derive Default
 pub struct PlayerState {
-    game_ref: Rc<RefCell<Game>>,
-    other_players: Rc<RefCell<DList<Player>>>,
+    game_ref: Rc<RefCell<GameState>>,
+    other_players: Rc<RefCell<DList<PlayerTup>>>,
 
 	deck: Vec<Card>,
 	discard: Vec<Card>,
@@ -318,7 +342,7 @@ impl PlayerState {
 	// Other errors may occur if there are not enough actions or buys, and once a Money
 	// card is played, then the player's action count is set to 0.
 	pub fn play_and(&mut self, c: Card, input: &[ActionInput]) -> Option<error::Error> {
-		let index = unwrap_or_err!(self.hand.iter().position(|&x| x == c) else error::InvalidPlay);
+		let index = unwrap!(self.hand.iter().position(|&x| x == c) else error::InvalidPlay);
         if !c.is_money() && !c.is_action() {
             return Some(error::InvalidPlay);
         }
@@ -740,4 +764,4 @@ type ActionFunc = fn(&mut PlayerState, &[ActionInput]);
 type VictoryFunc = fn(&PlayerState) -> int;
 pub type Card = &'static CardDef;
 pub type PlayerFunc = fn(&mut PlayerState);
-pub type Player = (Arc<~PlayerLike:Send+Share>, PlayerState);
+pub type PlayerTup = (Arc<~Player:Send+Share>, PlayerState);
