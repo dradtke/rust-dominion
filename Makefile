@@ -1,10 +1,9 @@
-
 all:: lib example
 
 lib:
 	@echo "Building libdominion..."
 	@mkdir -p build
-	@rustc --out-dir build dominion/mod.rs
+	@rustc -g --out-dir build dominion/mod.rs $(CFLAGS)
 
 test:
 	@echo "Building libdominion tests..."
@@ -15,7 +14,7 @@ test:
 
 example:
 	@echo "Building main..."
-	@rustc -L build main.rs
+	@rustc -g -L build main.rs $(CFLAGS)
 
 clean:
 	@echo "Cleaning..."; rm -rf main main.exe build
