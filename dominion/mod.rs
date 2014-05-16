@@ -43,14 +43,29 @@ pub trait Player {
     fn name(&self) -> &'static str;
     fn take_turn(&self);
 
-    // The default strategy is to always set aside action cards.
+    // Always set aside action cards.
     fn library_should_discard(&self, _: Card) -> bool {
         true
     }
 
-    // The default strategy is to always block attacks.
+    // The default strategy is to discard the first card (TODO: make this a little more sane)
+    fn militia_discard(&self, hand: &[Card]) -> Card {
+        hand[0]
+    }
+
+    // Always block attacks.
     fn moat_should_block(&self, _: Card) -> bool {
         true
+    }
+
+    // Return true if the card should be discarded, false if it should
+    // be kept on top of the deck.
+    //
+    // DEFAULT: Keep victory and curse cards for other players, discard them
+    // for yourself.
+    fn spy_should_discard(&self, c: Card, is_self: bool) -> bool {
+        let is_worthless = c.is_victory() || c.is_curse();
+        if is_self { is_worthless } else { !is_worthless }
     }
 }
 
@@ -108,6 +123,7 @@ pub fn play(player_list: ~[Box<Player:Send+Share>]) {
                 for p in player_arcs.move_iter() {
                     player_state_map.insert(p.name(), PlayerState{
                         game_ref:      game.clone(),
+                        myself:        p.clone(),
                         other_players: players.clone(),
                         deck:          deck.clone(),
                         discard:       Vec::new(),
@@ -440,6 +456,7 @@ fn attack(f: |&mut PlayerState|) {
 // TODO: find a way to derive Default
 pub struct PlayerState {
     game_ref: Rc<RefCell<GameState>>,
+    myself: Arc<Box<Player:Send+Share>>,
     other_players: Rc<RefCell<DList<Arc<Box<Player:Send+Share>>>>>,
 
 	deck: Vec<Card>,
@@ -629,6 +646,7 @@ impl PlayerState {
         cards
     }
 
+    #[allow(dead_code)]
     fn mill(&mut self) {
         match self.next_card() {
             Some(c) => self.discard.push(c),
@@ -666,10 +684,6 @@ impl PlayerState {
             self.discard.push(c);
             None
         }
-	}
-
-	fn discard_first(&mut self) {
-        self.discard.push(self.hand.remove(0).unwrap());
 	}
 
 	// trash() trashes a card from the player's hand, adding it to the

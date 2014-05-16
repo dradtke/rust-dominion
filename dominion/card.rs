@@ -34,7 +34,6 @@ fn do_cellar(inputs: &[ActionInput]) {
 
 /* ---------------------------- Chapel ---------------------------- */
 
-// TODO: refactor all of these to use with_active_state() instead of a hardcoded PlayerState
 pub static CHAPEL: Card = &'static CardDef { name: "Chapel", cost: 2, types: &[Action(do_chapel)] };
 fn do_chapel(inputs: &[ActionInput]) {
     with_active_player(|player| {
@@ -150,12 +149,12 @@ pub static MILITIA: Card = &'static CardDef { name: "Militia", cost: 4, types: &
 fn do_militia(_: &[ActionInput]) {
     with_active_player(|player| player.buying_power += 2);
     attack(|other: &mut PlayerState| {
-        loop {
-            if other.hand.len() <= 3 {
-                break;
+        while other.hand.len() > 3 {
+            let to_discard = other.myself.militia_discard(other.hand.as_slice());
+            match other.discard(to_discard) {
+                Some(err) => fail!(err),
+                _ => (),
             }
-            // TODO: find a way for players to choose the cards that are discarded
-            other.discard_first();
         }
     });
 }
@@ -206,15 +205,32 @@ fn do_smithy(_: &[ActionInput]) {
 
 pub static SPY: Card = &'static CardDef { name: "Spy", cost: 4, types: &[Action(do_spy)] };
 fn do_spy(_: &[ActionInput]) {
+    attack(|other| {
+        match other.next_card() {
+            Some(card) => {
+                if other.myself.spy_should_discard(card, false) {
+                    other.discard.push(card);
+                } else {
+                    other.deck.unshift(card);
+                }
+            },
+            None => (),
+        }
+    });
     with_active_player(|player| {
         player.draw();
         player.actions += 1;
+        match player.next_card() {
+            Some(card) => {
+                if player.myself.spy_should_discard(card, true) {
+                    player.discard.push(card);
+                } else {
+                    player.deck.unshift(card);
+                }
+            },
+            None => (),
+        }
     });
-    attack(|other| {
-        // TODO: get input from the player on where to put this
-        other.mill();
-    });
-    // TODO: do the same thing for yourself
 }
 
 /* ---------------------------- Thief ---------------------------- */
@@ -306,14 +322,13 @@ fn do_laboratory(_: &[ActionInput]) {
 
 pub static LIBRARY: Card = &'static CardDef { name: "Library", cost: 5, types: &[Action(do_library)] };
 fn do_library(_: &[ActionInput]) {
-    // TODO: fix this
     with_active_player(|player| {
         let mut set_aside = Vec::new();
         while player.hand.len() < 7 {
             match player.draw() {
                 None => break,
                 Some(drawn) => {
-                    if drawn.is_action() /* && p.library_should_discard(drawn) */ {
+                    if drawn.is_action() && player.myself.library_should_discard(drawn) {
                         player.remove_from_hand(drawn);
                         set_aside.push(drawn);
                     }
