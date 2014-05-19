@@ -1,6 +1,10 @@
 
 use std::vec::Vec;
-use super::{with_active_player, with_other_players, attack, Card, CardDef, PlayerState, Money, Victory, Action, Curse, ActionInput};
+use super::{
+    with_active_player, with_other_players, attack,
+    Card, CardDef, PlayerState,
+    Money, Victory, Action, Curse, ActionInput,
+};
 
 pub static COPPER: Card = &'static CardDef { name: "Copper", cost: 0, types: &'static[Money(1)] };
 pub static SILVER: Card = &'static CardDef { name: "Silver", cost: 3, types: &'static[Money(2)] };
@@ -23,11 +27,13 @@ pub static CELLAR: Card = &'static CardDef { name: "Cellar", cost: 2, types: &'s
 fn do_cellar(inputs: &[ActionInput]) {
     with_active_player(|player| {
         player.actions += 1;
-        for to_discard in inputs.iter().filter(|i| i.is_discard()) {
-            let card = to_discard.unwrap();
-            if player.discard(card).is_none() {
-                player.draw();
-            }
+        let mut discarded = 0;
+        for card in inputs.iter().filter(|i| i.is_discard()).map(|i| i.get_card()) {
+            player.discard(card).or_else(|| fail!("Cellar tried to discard {}, but you don't have it!", card.name));
+            discarded += 1;
+        }
+        for _ in range(0, discarded) {
+            player.draw();
         }
     });
 }
@@ -37,15 +43,8 @@ fn do_cellar(inputs: &[ActionInput]) {
 pub static CHAPEL: Card = &'static CardDef { name: "Chapel", cost: 2, types: &[Action(do_chapel)] };
 fn do_chapel(inputs: &[ActionInput]) {
     with_active_player(|player| {
-        let mut trashed = 0;
-        for to_trash in inputs.iter().filter(|i| i.is_trash()) {
-            let card = to_trash.unwrap();
-            if player.trash(card).is_none() {
-                trashed += 1;
-                if trashed >= 4 {
-                    break;
-                }
-            }
+        for card in inputs.iter().filter(|i| i.is_trash()).map(|i| i.get_card()).take(4) {
+            player.trash(card).or_else(|| fail!("Chapel tried to trash {}, but you don't have it!", card.name));
         }
     });
 }
@@ -98,10 +97,11 @@ fn do_woodcutter(_: &[ActionInput]) {
 pub static WORKSHOP: Card = &'static CardDef { name: "Workshop", cost: 3, types: &[Action(do_workshop)] };
 fn do_workshop(inputs: &[ActionInput]) {
     with_active_player(|player| {
-        let card = inputs.iter().find(|i| i.is_gain()).unwrap().unwrap();
-        if card.cost <= 4 {
-            player.gain(card);
+        let card = inputs.iter().find(|i| i.is_gain()).unwrap_or_else(|| fail!("No card to gain provided for Workshop!")).get_card();
+        if card.cost > 4 {
+            fail!("Workshop can't gain {} because {} > 4!", card.name, card.cost);
         }
+        player.gain(card);
     });
 }
 
@@ -112,11 +112,12 @@ fn do_bureaucrat(_: &[ActionInput]) {
     with_active_player(|player| {
         player.gain_to_deck(SILVER);
     });
-    // allow other players input on what card is used?
     attack(|other: &mut PlayerState| {
-        match other.hand.iter().find(|c| c.is_victory()) {
-            Some(c) => other.deck.unshift(*c),
-            None => (),
+        let options: Vec<Card> = other.hand.iter().filter_map(|&c| if c.is_victory() { Some(c) } else { None }).collect();
+        if options.len() > 0 {
+            let c = other.myself.bureaucrat_use_victory(options.as_slice());
+            other.remove_from_hand(c);
+            other.deck.unshift(c);
         }
     });
 }
@@ -127,10 +128,11 @@ pub static FEAST: Card = &'static CardDef { name: "Feast", cost: 4, types: &[Act
 fn do_feast(inputs: &[ActionInput]) {
     with_active_player(|player| {
         player.trash_from_play(FEAST);
-        let card = inputs.iter().find(|i| i.is_gain()).unwrap().unwrap();
-        if card.cost <= 5 {
-            player.gain(card);
+        let card = inputs.iter().find(|i| i.is_gain()).unwrap_or_else(|| fail!("No card to gain provided for Feast!")).get_card();
+        if card.cost > 5 {
+            fail!("Feast can't gain {} because {} > 5!", card.name, card.cost);
         }
+        player.gain(card);
     });
 }
 
@@ -150,11 +152,8 @@ fn do_militia(_: &[ActionInput]) {
     with_active_player(|player| player.buying_power += 2);
     attack(|other: &mut PlayerState| {
         while other.hand.len() > 3 {
-            let to_discard = other.myself.militia_discard(other.hand.as_slice());
-            match other.discard(to_discard) {
-                Some(err) => fail!(err),
-                _ => (),
-            }
+            let card = other.myself.militia_discard(other.hand.as_slice());
+            other.discard(card).or_else(|| fail!("Militia tried to discard {}, but you don't have it!", card.name));
         }
     });
 }
@@ -164,11 +163,10 @@ fn do_militia(_: &[ActionInput]) {
 pub static MONEYLENDER: Card = &'static CardDef { name: "Moneylender", cost: 4, types: &[Action(do_moneylender)] };
 fn do_moneylender(_: &[ActionInput]) {
     with_active_player(|player| {
-        if !player.hand_contains(COPPER) {
-            return;
+        if player.hand_contains(COPPER) {
+            player.trash(COPPER);
+            player.buying_power += 3;
         }
-        player.trash(COPPER);
-        player.buying_power += 3;
     });
 }
 
@@ -176,17 +174,14 @@ fn do_moneylender(_: &[ActionInput]) {
 
 pub static REMODEL: Card = &'static CardDef { name: "Remodel", cost: 4, types: &[Action(do_remodel)] };
 fn do_remodel(inputs: &[ActionInput]) {
-    let to_trash = inputs.iter().find(|i| i.is_trash()).unwrap().unwrap();
-    let to_gain = inputs.iter().find(|i| i.is_gain()).unwrap().unwrap();
-    if to_gain.cost > to_trash.cost + 2 {
-        return;
+    let to_trash = inputs.iter().find(|i| i.is_trash()).unwrap_or_else(|| fail!("No card to trash provided for Remodel!")).get_card();
+    let to_gain = inputs.iter().find(|i| i.is_gain()).unwrap_or_else(|| fail!("No card to gain provided for Remodel!")).get_card();
+    if to_gain.cost > (to_trash.cost + 2) {
+        fail!("Remodel can't trash a card costing {} and gain one costing {}!", to_trash.cost, to_gain.cost);
     }
     with_active_player(|player| {
-        if !player.hand_contains(to_trash) {
-            return;
-        }
-        player.trash(to_trash);
-        player.gain(to_gain);
+        player.trash(to_trash).or_else(|| fail!("Remodel tried to trash {}, but you don't have it!", to_trash.name));
+        player.gain(to_gain).or_else(|| fail!("Remodel tried to gain {}, but it's not available!", to_gain.name));
     });
 }
 
@@ -206,30 +201,24 @@ fn do_smithy(_: &[ActionInput]) {
 pub static SPY: Card = &'static CardDef { name: "Spy", cost: 4, types: &[Action(do_spy)] };
 fn do_spy(_: &[ActionInput]) {
     attack(|other| {
-        match other.next_card() {
-            Some(card) => {
-                if other.myself.spy_should_discard(card, false) {
-                    other.discard.push(card);
-                } else {
-                    other.deck.unshift(card);
-                }
-            },
-            None => (),
-        }
+        other.next_card().map(|card| {
+            if other.myself.spy_should_discard(card, false) {
+                other.discard.push(card);
+            } else {
+                other.deck.unshift(card);
+            }
+        });
     });
     with_active_player(|player| {
         player.draw();
         player.actions += 1;
-        match player.next_card() {
-            Some(card) => {
-                if player.myself.spy_should_discard(card, true) {
-                    player.discard.push(card);
-                } else {
-                    player.deck.unshift(card);
-                }
-            },
-            None => (),
-        }
+        player.next_card().map(|card| {
+            if player.myself.spy_should_discard(card, true) {
+                player.discard.push(card);
+            } else {
+                player.deck.unshift(card);
+            }
+        });
     });
 }
 
@@ -355,8 +344,8 @@ fn do_market(_: &[ActionInput]) {
 
 pub static MINE: Card = &'static CardDef { name: "Mine", cost: 5, types: &[Action(do_mine)] };
 fn do_mine(inputs: &[ActionInput]) {
-    let to_trash = inputs.iter().find(|x| x.is_trash()).unwrap().unwrap();
-    let to_gain = inputs.iter().find(|x| x.is_gain()).unwrap().unwrap();
+    let to_trash = inputs.iter().find(|x| x.is_trash()).unwrap().get_card();
+    let to_gain = inputs.iter().find(|x| x.is_gain()).unwrap().get_card();
     if to_gain.treasure_value() > (to_trash.treasure_value() + 3) || !to_gain.is_money() {
         return;
     }

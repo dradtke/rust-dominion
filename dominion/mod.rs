@@ -16,7 +16,7 @@ use std::rc::Rc;
 use std::task;
 use std::vec::Vec;
 use sync::Arc;
-use rand::{Rng,task_rng};
+use rand::Rng;
 
 pub mod card;
 pub mod error;
@@ -43,29 +43,48 @@ pub trait Player {
     fn name(&self) -> &'static str;
     fn take_turn(&self);
 
-    // Always set aside action cards.
+    // library_should_discard() is called when an Action card is encountered as part of
+    // a Library draw. It should return true if that card should be discarded,
+    // and false if it should be kept.
+    //
+    // DEFAULT: Always discard Action cards.
     fn library_should_discard(&self, _: Card) -> bool {
         true
     }
 
-    // The default strategy is to discard the first card (TODO: make this a little more sane)
-    fn militia_discard(&self, hand: &[Card]) -> Card {
-        hand[0]
+    // militia_discard() is called when another player plays Militia, and is called
+    // repeatedly until you have three or fewer cards in hand. Given a list of
+    // cards in your hand, it should return the one that you wish to discard.
+    //
+    // DEFAULT: Discard the first card (TODO: make this default a little better)
+    fn militia_discard(&self, options: &[Card]) -> Card {
+        options[0]
     }
 
-    // Always block attacks.
+    // moat_should_block() is called when another player plays an attack card
+    // while you have a Moat in hand. It should return true if you wish to block
+    // the attack, otherwise false.
+    //
+    // DEFAULT: Always block attacks. Why wouldn't you?
     fn moat_should_block(&self, _: Card) -> bool {
         true
     }
 
-    // Return true if the card should be discarded, false if it should
-    // be kept on top of the deck.
+    // spy_should_discard() is called when a Spy is played, including by you.
+    // Given the value of the top card of a player's deck, this method should
+    // return true if that card should be discarded, and false if it should
+    // be returned to the top of the player's deck. The value of `is_self` is
+    // true if and only if you are the player being acted on.
     //
-    // DEFAULT: Keep victory and curse cards for other players, discard them
+    // DEFAULT: Keep victory and curse cards on top for other players, discard them
     // for yourself.
     fn spy_should_discard(&self, c: Card, is_self: bool) -> bool {
         let is_worthless = c.is_victory() || c.is_curse();
         if is_self { is_worthless } else { !is_worthless }
+    }
+
+    fn bureaucrat_use_victory(&self, options: &[Card]) -> Card {
+        options[0]
     }
 }
 
@@ -103,11 +122,6 @@ pub fn play(player_list: ~[Box<Player:Send+Share>]) {
     let player_arcs: Vec<Arc<Box<Player:Send+Share>>> = player_list.move_iter().map(|player| Arc::new(player)).collect();
 
     for _ in range(0, n) {
-        let mut deck = Vec::new();
-        deck.push_all_move(card::COPPER.create_copies(7));
-        deck.push_all_move(card::ESTATE.create_copies(3));
-        task_rng().shuffle(deck.as_mut_slice());
-
         let reporter = reporter.clone();
         let trash = trash.clone();
         let supply = supply.clone();
@@ -115,6 +129,16 @@ pub fn play(player_list: ~[Box<Player:Send+Share>]) {
 
         spawn(proc() {
             match task::try(proc() {
+                let mut rng = rand::task_rng();
+
+                let mut player_arcs = player_arcs;
+                rng.shuffle(player_arcs.as_mut_slice());
+
+                let mut deck = Vec::new();
+                deck.push_all_move(card::COPPER.create_copies(7));
+                deck.push_all_move(card::ESTATE.create_copies(3));
+                rng.shuffle(deck.as_mut_slice());
+
                 let players = Rc::new(RefCell::new(DList::<Arc<Box<Player:Send+Share>>>::new()));
                 let game = Rc::new(RefCell::new(GameState{ supply: supply, trash: trash }));
 
@@ -630,7 +654,7 @@ impl PlayerState {
     fn next_card(&mut self) -> Option<Card> {
         if self.deck.is_empty() {
             mem::swap(&mut self.deck, &mut self.discard);
-            task_rng().shuffle(self.deck.as_mut_slice());
+            rand::task_rng().shuffle(self.deck.as_mut_slice());
         }
         self.deck.shift()
     }
@@ -875,11 +899,12 @@ impl ActionInput {
         }
     }
 
-	pub fn unwrap(&self) -> Card {
+	pub fn get_card(&self) -> Card {
 		match *self {
 			Discard(c) => c,
 			Trash(c) => c,
-            _ => fail!("Nothing to unwrap!"),
+            Gain(c) => c,
+            _ => fail!("Can't get card of unsupported input type!"),
 		}
 	}
 }
