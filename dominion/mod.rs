@@ -1,6 +1,8 @@
 #![crate_id = "dominion#0.1"]
 #![crate_type = "lib"]
+
 #![feature(macro_rules)]
+#![allow(unused_must_use)]
 
 extern crate collections;
 extern crate rand;
@@ -86,6 +88,22 @@ pub trait Player {
     fn bureaucrat_use_victory(&self, options: &[Card]) -> Card {
         options[0]
     }
+
+    // thief_tash_and_keep() is called when you play Thief and someone reveals
+    // one or more treasure cards. `options` contains at least one card
+    // (but no more than 2), and it should return a tuple describing how to
+    // treat the reveal. The first value is the card that should be trashed,
+    // and the second value is a boolean indicating whether or not it should
+    // be kept.
+    //
+    // DEFAULT: Always trash the highest value treasure card, and only keep it
+    // if it isn't a Copper.
+    fn thief_trash_and_keep(&self, options: &[Card]) -> (Card, bool) {
+        let mut money = Vec::from_slice(options);
+        money.sort_by(|m1, m2| m2.treasure_value().cmp(&m1.treasure_value())); // TODO: verify the ordering, highest should be first
+        let highest = *money.get(0);
+        (highest, highest != card::COPPER)
+    }
 }
 
 
@@ -141,14 +159,19 @@ pub fn play(player_list: ~[Box<Player:Send+Share>]) {
 
                 let players = Rc::new(RefCell::new(DList::<Arc<Box<Player:Send+Share>>>::new()));
                 let game = Rc::new(RefCell::new(GameState{ supply: supply, trash: trash }));
-
                 let mut player_state_map = HashMap::<&'static str, PlayerState>::new();
+                let other_players: PlayerList = player_arcs.clone().move_iter().collect();
 
                 for p in player_arcs.move_iter() {
+                    let mut other_players = other_players.clone();
+                    while other_players.front().unwrap().name() != p.name() {
+                        other_players.rotate_backward();
+                    }
+                    other_players.pop_front();
                     player_state_map.insert(p.name(), PlayerState{
                         game_ref:      game.clone(),
                         myself:        p.clone(),
-                        other_players: players.clone(),
+                        other_players: other_players,
                         deck:          deck.clone(),
                         discard:       Vec::new(),
                         in_play:       Vec::new(),
@@ -163,7 +186,7 @@ pub fn play(player_list: ~[Box<Player:Send+Share>]) {
 
                 state_map.replace(Some(RefCell::new(player_state_map)));
 
-                play_game(players.clone())
+                play_game(players)
             }) {
                 Err(e) => {
                     reporter.send(Err(e));
@@ -200,7 +223,7 @@ pub fn play(player_list: ~[Box<Player:Send+Share>]) {
 // play_game() playes a single game of Dominion. It plays a game and then
 // returns a vector of tuples with the player's name along with their final
 // score, ordered from highest to lowest.
-pub fn play_game(players: Rc<RefCell<DList<Arc<Box<Player:Send+Share>>>>>) -> GameResult {
+pub fn play_game(players: Rc<RefCell<PlayerList>>) -> GameResult {
     let empty_limit = get_empty_limit((*players).borrow().len());
     loop {
         let player = (*players).borrow_mut().pop_front().unwrap();
@@ -314,7 +337,7 @@ pub fn hand_contains(c: Card) -> bool {
     with_active_player(|player| player.hand_contains(c))
 }
 
-pub fn play_card(c: Card) -> Option<error::Error> {
+pub fn play_card(c: Card) -> DominionResult {
     play_card_and(c, [])
 }
 
@@ -322,13 +345,13 @@ pub fn play_card(c: Card) -> Option<error::Error> {
 // card is not in the player's hand, or (b) the card cannot be played, e.g. Province.
 // Other errors may occur if there are not enough actions or buys, and once a Money
 // card is played, then the player's action count is set to 0.
-pub fn play_card_and(c: Card, input: &[ActionInput]) -> Option<error::Error> {
+pub fn play_card_and(c: Card, input: &[ActionInput]) -> DominionResult {
     if !c.is_money() && !c.is_action() {
-        return Some(error::InvalidPlay);
+        return Err(error::InvalidPlay);
     }
-    let (action, error) = with_active_player(|player| -> (Option<ActionFunc>, Option<error::Error>) {
+    let (action, result) = with_active_player(|player| -> (Option<ActionFunc>, DominionResult) {
         match player.hand.iter().position(|&x| x == c) {
-            None => (None, Some(error::InvalidPlay)),
+            None => (None, Err(error::InvalidPlay)),
             Some(index) => {
                 player.in_play.push(player.hand.remove(index).unwrap());
                 if c.is_money() {
@@ -337,13 +360,13 @@ pub fn play_card_and(c: Card, input: &[ActionInput]) -> Option<error::Error> {
                 }
                 if c.is_action() {
                     if player.actions == 0 {
-                        (None, Some(error::NoActions))
+                        (None, Err(error::NoActions))
                     } else {
                         player.actions -= 1;
-                        (Some(c.get_action()), None)
+                        (Some(c.get_action()), Ok(()))
                     }
                 } else {
-                    (None, None)
+                    (None, Ok(()))
                 }
             }
         }
@@ -354,7 +377,7 @@ pub fn play_card_and(c: Card, input: &[ActionInput]) -> Option<error::Error> {
         f(input);
         active_card.replace(None);
     }
-    error
+    result
 }
 
 // play_all_money() is a utility method that iterates through the player's
@@ -362,7 +385,7 @@ pub fn play_card_and(c: Card, input: &[ActionInput]) -> Option<error::Error> {
 pub fn play_all_money() {
     let hand = get_hand();
     for card in hand.iter().filter(|&c| c.is_money()) {
-        play_card(*card);
+        play_card(*card).unwrap();
     }
 }
 
@@ -373,10 +396,10 @@ pub fn play_all_money() {
 //   3. NotEnoughMoney(difference), if the player doesn't have the money
 // On success, the appropriate supply count is decremented and a copy
 // of the card is added to the player's discard pile.
-pub fn buy(c: Card) -> Option<error::Error> {
+pub fn buy(c: Card) -> DominionResult {
     let pile = match count(c) {
-        None => return Some(error::NotInSupply),
-        Some(0) => return Some(error::EmptyPile),
+        None => return Err(error::NotInSupply),
+        Some(0) => return Err(error::EmptyPile),
         Some(pile) => pile,
     };
     with_active_player(|player| {
@@ -385,9 +408,9 @@ pub fn buy(c: Card) -> Option<error::Error> {
             player.discard.push(c);
             player.actions = 0;
             player.buying_power -= c.cost;
-            None
+            Ok(())
         } else {
-            Some(error::NotEnoughMoney(c.cost - player.buying_power))
+            Err(error::NotEnoughMoney(c.cost - player.buying_power))
         }
     })
 }
@@ -449,28 +472,25 @@ fn with_active_player<T>(f: |&mut PlayerState| -> T) -> T {
 }
 
 fn with_other_players(f: |&mut PlayerState|) {
-    let others = with_active_player(|player| player.other_players.clone());
-    let state_map_ref = state_map.get().unwrap();
-    let mut states = state_map_ref.borrow_mut();
-    for other in (*others).borrow_mut().iter() {
-        let state = states.get_mut(&other.name());
-        f(state);
-    }
+    let r = state_map.get().unwrap();
+    let mut states = r.borrow_mut();
+    with_active_player(|player| for other in player.other_players.iter() {
+        f(states.get_mut(&other.name()));
+    });
 }
 
 // attack() calls f on each other player, but only if they don't
 // have a Moat in hand and want to block it.
 fn attack(f: |&mut PlayerState|) {
-    let others = with_active_player(|player| player.other_players.clone());
-    let state_map_ref = state_map.get().unwrap();
-    let mut states = state_map_ref.borrow_mut();
-    for other in (*others).borrow_mut().iter() {
+    let r = state_map.get().unwrap();
+    let mut states = r.borrow_mut();
+    with_active_player(|player| for other in player.other_players.iter() {
         let state = states.get_mut(&other.name());
         let attacker = *active_card.get().unwrap();
         if !state.hand_contains(card::MOAT) || !(**other).moat_should_block(attacker) {
             f(state);
         }
-    }
+    });
 }
 
 
@@ -481,7 +501,7 @@ fn attack(f: |&mut PlayerState|) {
 pub struct PlayerState {
     game_ref: Rc<RefCell<GameState>>,
     myself: Arc<Box<Player:Send+Share>>,
-    other_players: Rc<RefCell<DList<Arc<Box<Player:Send+Share>>>>>,
+    other_players: PlayerList,
 
 	deck: Vec<Card>,
 	discard: Vec<Card>,
@@ -546,6 +566,10 @@ pub type Card = &'static CardDef;
 
 pub type PlayerFunc = fn(&mut PlayerState);
 
+pub type DominionResult = Result<(), error::Error>;
+
+pub type PlayerList = DList<Arc<Box<Player:Send+Share>>>;
+
 
 /* ------------------------ PlayerState Impl ------------------------ */
 
@@ -556,52 +580,52 @@ impl PlayerState {
     }
 
     // gain() takes a card from the supply, putting it in the discard pile.
-    fn gain(&mut self, c: Card) -> Option<error::Error> {
+    fn gain(&mut self, c: Card) -> DominionResult {
         let pile = match count(c) {
-            None => return Some(error::NotInSupply),
-            Some(0) => return Some(error::EmptyPile),
+            None => return Err(error::NotInSupply),
+            Some(0) => return Err(error::EmptyPile),
             Some(pile) => pile,
         };
         self.with_mut_supply(|supply| supply.insert(c, pile - 1));
         self.discard.push(c);
-        None
+        Ok(())
     }
 
     // gain_to_deck() takes a card from the supply, putting it on top of
     // the deck.
-    fn gain_to_deck(&mut self, c: Card) -> Option<error::Error> {
+    fn gain_to_deck(&mut self, c: Card) -> DominionResult {
         let pile = match count(c) {
-            None => return Some(error::NotInSupply),
-            Some(0) => return Some(error::EmptyPile),
+            None => return Err(error::NotInSupply),
+            Some(0) => return Err(error::EmptyPile),
             Some(pile) => pile,
         };
         self.with_mut_supply(|supply| supply.insert(c, pile - 1));
         self.deck.unshift(c);
-        None
+        Ok(())
     }
 
     // gain_to_hand() takes a card from the supply, putting it into
     // the hand.
-    fn gain_to_hand(&mut self, c: Card) -> Option<error::Error> {
+    fn gain_to_hand(&mut self, c: Card) -> DominionResult {
         let pile = match count(c) {
-            None => return Some(error::NotInSupply),
-            Some(0) => return Some(error::EmptyPile),
+            None => return Err(error::NotInSupply),
+            Some(0) => return Err(error::EmptyPile),
             Some(pile) => pile,
         };
         self.with_mut_supply(|supply| supply.insert(c, pile - 1));
         self.hand.unshift(c);
-        None
+        Ok(())
     }
 
 	// curse() gives the player a curse card and depletes one from the supply.
-	fn curse(&mut self) -> Option<error::Error> {
+	fn curse(&mut self) -> DominionResult {
 		let pile = self.count(card::CURSE).unwrap();
 		if pile == 0 {
-			Some(error::EmptyPile)
+			Err(error::EmptyPile)
 		} else {
 			self.with_mut_supply(|supply| supply.insert(card::CURSE, pile - 1));
 			self.discard.push(card::CURSE);
-			None
+			Ok(())
 		}
 	}
 
@@ -701,34 +725,34 @@ impl PlayerState {
 	// discard() discards a card from the player's hand, adding it to the
 	// discard pile. If it's not in the player's hand than a NotInHand
 	// error is returned.
-	fn discard(&mut self, c: Card) -> Option<error::Error> {
+	fn discard(&mut self, c: Card) -> DominionResult {
         if !self.remove_from_hand(c) {
-            Some(error::NotInHand)
+            Err(error::NotInHand)
         } else {
             self.discard.push(c);
-            None
+            Ok(())
         }
 	}
 
 	// trash() trashes a card from the player's hand, adding it to the
 	// shared trash pile. If it's not in the player's hand than a NotInHand
 	// error is returned.
-	fn trash(&mut self, c: Card) -> Option<error::Error> {
+	fn trash(&mut self, c: Card) -> DominionResult {
         if !self.remove_from_hand(c) {
-            Some(error::NotInHand)
+            Err(error::NotInHand)
         } else {
             (*self.game_ref).borrow_mut().trash.push(c);
-            None
+            Ok(())
         }
 	}
 
-    fn trash_from_play(&mut self, c: Card) -> Option<error::Error> {
+    fn trash_from_play(&mut self, c: Card) -> DominionResult {
 		match self.in_play.iter().enumerate().find(|&(_,&x)| x == c) {
-			None => Some(error::NotInHand),
+			None => Err(error::NotInHand),
 			Some((i,_)) => {
 				let card = self.in_play.remove(i).unwrap();
                 (*self.game_ref).borrow_mut().trash.push(card);
-				None
+				Ok(())
 			},
 		}
     }

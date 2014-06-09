@@ -3,6 +3,7 @@ use std::vec::Vec;
 use super::{
     with_active_player, with_other_players, attack,
     Card, CardDef, PlayerState,
+    Trash, Gain,
     Money, Victory, Action, Curse, ActionInput,
 };
 
@@ -29,7 +30,7 @@ fn do_cellar(inputs: &[ActionInput]) {
         player.actions += 1;
         let mut discarded = 0;
         for card in inputs.iter().filter(|i| i.is_discard()).map(|i| i.get_card()) {
-            player.discard(card).or_else(|| fail!("Cellar tried to discard {}, but you don't have it!", card.name));
+            player.discard(card).unwrap_or_else(|_| fail!("Cellar tried to discard {}, but you don't have it!", card.name));
             discarded += 1;
         }
         for _ in range(0, discarded) {
@@ -44,7 +45,7 @@ pub static CHAPEL: Card = &'static CardDef { name: "Chapel", cost: 2, types: &[A
 fn do_chapel(inputs: &[ActionInput]) {
     with_active_player(|player| {
         for card in inputs.iter().filter(|i| i.is_trash()).map(|i| i.get_card()).take(4) {
-            player.trash(card).or_else(|| fail!("Chapel tried to trash {}, but you don't have it!", card.name));
+            player.trash(card).unwrap_or_else(|_| fail!("Chapel tried to trash {}, but you don't have it!", card.name));
         }
     });
 }
@@ -97,7 +98,10 @@ fn do_woodcutter(_: &[ActionInput]) {
 pub static WORKSHOP: Card = &'static CardDef { name: "Workshop", cost: 3, types: &[Action(do_workshop)] };
 fn do_workshop(inputs: &[ActionInput]) {
     with_active_player(|player| {
-        let card = inputs.iter().find(|i| i.is_gain()).unwrap_or_else(|| fail!("No card to gain provided for Workshop!")).get_card();
+        let card = match inputs.iter().find(|i| i.is_gain()) {
+            Some(&Gain(card)) => card,
+            _ => fail!("No card to gain provided for Workshop!"),
+        };
         if card.cost > 4 {
             fail!("Workshop can't gain {} because {} > 4!", card.name, card.cost);
         }
@@ -116,6 +120,9 @@ fn do_bureaucrat(_: &[ActionInput]) {
         let options: Vec<Card> = other.hand.iter().filter_map(|&c| if c.is_victory() { Some(c) } else { None }).collect();
         if options.len() > 0 {
             let c = other.myself.bureaucrat_use_victory(options.as_slice());
+            if !options.contains(&c) {
+                fail!("Bureaucrat tried to choose {}, which wasn't an available option!", c.name);
+            }
             other.remove_from_hand(c);
             other.deck.unshift(c);
         }
@@ -128,7 +135,10 @@ pub static FEAST: Card = &'static CardDef { name: "Feast", cost: 4, types: &[Act
 fn do_feast(inputs: &[ActionInput]) {
     with_active_player(|player| {
         player.trash_from_play(FEAST);
-        let card = inputs.iter().find(|i| i.is_gain()).unwrap_or_else(|| fail!("No card to gain provided for Feast!")).get_card();
+        let card = match inputs.iter().find(|i| i.is_gain()) {
+            Some(&Gain(card)) => card,
+            _ => fail!("No card to gain provided for Feast!"),
+        };
         if card.cost > 5 {
             fail!("Feast can't gain {} because {} > 5!", card.name, card.cost);
         }
@@ -153,7 +163,7 @@ fn do_militia(_: &[ActionInput]) {
     attack(|other: &mut PlayerState| {
         while other.hand.len() > 3 {
             let card = other.myself.militia_discard(other.hand.as_slice());
-            other.discard(card).or_else(|| fail!("Militia tried to discard {}, but you don't have it!", card.name));
+            other.discard(card).unwrap_or_else(|_| fail!("Militia tried to discard {}, but you don't have it!", card.name));
         }
     });
 }
@@ -174,14 +184,20 @@ fn do_moneylender(_: &[ActionInput]) {
 
 pub static REMODEL: Card = &'static CardDef { name: "Remodel", cost: 4, types: &[Action(do_remodel)] };
 fn do_remodel(inputs: &[ActionInput]) {
-    let to_trash = inputs.iter().find(|i| i.is_trash()).unwrap_or_else(|| fail!("No card to trash provided for Remodel!")).get_card();
-    let to_gain = inputs.iter().find(|i| i.is_gain()).unwrap_or_else(|| fail!("No card to gain provided for Remodel!")).get_card();
+    let to_trash = match inputs.iter().find(|i| i.is_trash()) {
+        Some(&Trash(card)) => card,
+        _ => fail!("No card to trash provided for Remodel!"),
+    };
+    let to_gain = match inputs.iter().find(|i| i.is_gain()) {
+        Some(&Gain(card)) => card,
+        _ => fail!("No card to gain provided for Remodel!"),
+    };
     if to_gain.cost > (to_trash.cost + 2) {
         fail!("Remodel can't trash a card costing {} and gain one costing {}!", to_trash.cost, to_gain.cost);
     }
     with_active_player(|player| {
-        player.trash(to_trash).or_else(|| fail!("Remodel tried to trash {}, but you don't have it!", to_trash.name));
-        player.gain(to_gain).or_else(|| fail!("Remodel tried to gain {}, but it's not available!", to_gain.name));
+        player.trash(to_trash).unwrap_or_else(|_| fail!("Remodel tried to trash {}, but you don't have it!", to_trash.name));
+        player.gain(to_gain).unwrap_or_else(|_| fail!("Remodel tried to gain {}, but it's not available!", to_gain.name));
     });
 }
 
@@ -235,12 +251,16 @@ fn do_thief(_: &[ActionInput]) {
         if money.is_empty() {
             return;
         }
-        money.sort_by(|m1, m2| m2.treasure_value().cmp(&m1.treasure_value())); // TODO: verify the ordering, highest should be first
-        let mut iter = money.iter();
-        let chosen = *iter.next().unwrap();
+        let (chosen, keep) = other.myself.thief_trash_and_keep(money.as_slice());
+        match money.iter().position(|m| *m == chosen) {
+            Some(i) => { money.remove(i); },
+            None => fail!("Thief tried to trash {}, but it wasn't a valid option!", chosen.name),
+        }
         other.trash(chosen);
-        gained.push(chosen);
-        for rest in iter {
+        if keep {
+            gained.push(chosen);
+        }
+        for rest in money.iter() {
             other.discard(*rest);
         }
     });
