@@ -420,19 +420,23 @@ fn do_adventurer(_: &[ActionInput]) {
 
 #[cfg(test)]
 mod tests {
-    use card = super::super::card;
+    extern crate sync;
+
+    use super::super::card::*;
     use error = super::super::error;
-    use collections::{DList,HashMap};
-    use super::super::{Card, PlayerState, Supply, Game, Discard};
-    use std::rc::Rc;
+
+    use std::collections::{DList, HashMap};
+    use super::super::{Card, Player, PlayerState, Supply, Discard, Trash, GameState};
     use std::cell::RefCell;
+    use std::rc::Rc;
     use std::vec::Vec;
+    use sync::Arc;
 
     macro_rules! assert_no_error(
         ($val:expr) => (
             match $val {
-                None => (),
-                Some(err) => match err {
+                Ok(_) => (),
+                Err(e) => match e {
                     error::InvalidPlay => fail!("Invalid play!"),
                     error::NoActions => fail!("No actions left!"),
                     _ => fail!("Unknown error!"),
@@ -441,32 +445,39 @@ mod tests {
         )
     )
 
-    fn dont_play(_: &mut PlayerState) {
+
+    struct Alice;
+    impl Player for Alice {
+        fn name(&self) -> &'static str { "Alice" }
+        fn take_turn(&self) {}
     }
 
-    fn setup(hand: Vec<Card>, deck: Vec<Card>) -> PlayerState {
+    fn setup(hand: Vec<Card>, deck: Vec<Card>) {
         let trash = Vec::new();
 
         let mut supply: Supply = HashMap::new();
-        supply.insert(card::COPPER,   30);
-        supply.insert(card::SILVER,   30);
-        supply.insert(card::GOLD,     30);
-        supply.insert(card::ESTATE,   12);
-        supply.insert(card::DUCHY,    12);
-        supply.insert(card::PROVINCE, 12);
-        supply.insert(card::CURSE,    30);
-        supply.insert(card::SMITHY,   10);
-        supply.insert(card::WITCH,    10);
+        supply.insert(COPPER.to_str(),   30);
+        supply.insert(SILVER.to_str(),   30);
+        supply.insert(GOLD.to_str(),     30);
+        supply.insert(ESTATE.to_str(),   12);
+        supply.insert(DUCHY.to_str(),    12);
+        supply.insert(PROVINCE.to_str(), 12);
+        supply.insert(CURSE.to_str(),    30);
+        supply.insert(SMITHY.to_str(),   10);
+        supply.insert(WITCH.to_str(),    10);
 
-        let game = Game{ supply: supply, trash: trash };
-        let game_rc = Rc::new(RefCell::new(game));
-        let players_rc = Rc::new(RefCell::new(DList::new()));
+        let game = GameState{supply: supply, trash: trash};
 
-        PlayerState{
-            //name:          ~"PlayerState",
-            game_rc:       game_rc.clone(),
-            other_players: players_rc.clone(),
-            //play:          dont_play,
+        // TODO: create a second player Bob for testing attack cards
+        let alice = box Alice as Box<Player:Send+Share>;
+        ::active_player.replace(Some(alice.name()));
+
+        let mut player_state_map = HashMap::<&'static str, PlayerState>::new();
+
+        player_state_map.insert(alice.name(), PlayerState{
+            game_ref:      Rc::new(RefCell::new(game)),
+            myself:        Arc::new(alice),
+            other_players: DList::new(),
             deck:          deck,
             discard:       Vec::new(),
             in_play:       Vec::new(),
@@ -475,17 +486,48 @@ mod tests {
             buys:          1,
             buying_power:  0,
             score:         0,
-        }
+        });
+
+        ::state_map.replace(Some(RefCell::new(player_state_map)));
     }
 
     #[test]
     fn test_cellar() {
-        let mut player = setup(vec!(card::CELLAR, card::ESTATE, card::ESTATE, card::COPPER), vec!(card::SILVER, card::GOLD));
-        assert_no_error!(player.play_and(card::CELLAR, vec!(Discard(card::ESTATE), Discard(card::ESTATE)).as_slice()));
-        assert_eq!(player.hand.len(), 3);
-        assert_eq!(player.actions, 1);
-        assert!(*player.hand.get(0) == card::COPPER);
-        assert!(*player.hand.get(1) == card::SILVER);
-        assert!(*player.hand.get(2) == card::GOLD);
+        setup(vec!(CELLAR, ESTATE, ESTATE, COPPER), vec!(SILVER, GOLD));
+        assert_no_error!(::play_card_and(CELLAR, vec!(Discard(ESTATE), Discard(ESTATE)).as_slice()));
+        let hand = ::get_hand();
+        assert_eq!(hand.len(), 3);
+        assert_eq!(*hand.get(0), COPPER);
+        assert_eq!(*hand.get(1), SILVER);
+        assert_eq!(*hand.get(2), GOLD);
+        assert_eq!(::get_action_count(), 1);
+    }
+
+    #[test]
+    fn test_chapel() {
+        setup(vec!(CHAPEL, ESTATE, ESTATE, COPPER, ESTATE, COPPER), vec!());
+        assert_eq!(::get_trash().len(), 0);
+        assert_no_error!(::play_card_and(CHAPEL, vec!(Trash(ESTATE), Trash(ESTATE), Trash(ESTATE), Trash(COPPER)).as_slice()));
+        let hand = ::get_hand();
+        let trash = ::get_trash();
+        assert_eq!(hand.len(), 1);
+        assert_eq!(*hand.get(0), COPPER);
+        assert_eq!(trash.len(), 4);
+        assert_eq!(trash.iter().filter(|&x| x == &COPPER).count(), 1);
+        assert_eq!(trash.iter().filter(|&x| x == &ESTATE).count(), 3);
+    }
+
+
+    // #[test]
+    // fn test_moat() {
+    //     ...
+    // }
+
+    #[test]
+    fn test_chancellor() {
+        // TODO: test the deck-to-discard piece
+        setup(vec!(CHANCELLOR), vec!());
+        assert_no_error!(::play_card(CHANCELLOR));
+        assert_eq!(::get_buying_power(), 2);
     }
 }

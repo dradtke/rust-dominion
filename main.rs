@@ -1,6 +1,6 @@
 #![feature(phase)]
 
-#[phase(syntax, link)] extern crate dominion;
+#[phase(plugin, link)] extern crate dominion;
 use dominion::strat;
 
 struct Georgia;
