@@ -469,7 +469,7 @@ mod tests {
         let game = GameState{supply: supply, trash: trash};
 
         // TODO: create a second player Bob for testing attack cards
-        let alice = box Alice as Box<Player:Send+Share>;
+        let alice = box Alice as Box<Player,Send+Share>;
         ::active_player.replace(Some(alice.name()));
 
         let mut player_state_map = HashMap::<&'static str, PlayerState>::new();

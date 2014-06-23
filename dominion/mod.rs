@@ -25,11 +25,11 @@ pub mod error;
 pub mod strat;
 
 #[macro_export]
-macro_rules! play(
+macro_rules! dominion(
     ($($player:ident),+) => ({
-        dominion::play(~[$(
-            box $player as Box<dominion::Player:Send+Share>,
-        )+]);
+        dominion::play(vec!($(
+            box $player as Box<dominion::Player+Send+Share>,
+        )+));
     })
 )
 
@@ -109,7 +109,7 @@ pub trait Player {
 
 /* ------------------------ Public Methods ------------------------ */
 
-fn report(term: &mut Box<term::Terminal<Box<Writer:Send>>:Send>, games: uint, total_games: uint, scores: &HashMap<String, uint>, ties: uint) {
+fn report(term: &mut Box<term::Terminal<Box<Writer+Send>>+Send>, games: uint, total_games: uint, scores: &HashMap<String, uint>, ties: uint) {
     let winning = match scores.iter().max_by(|&(_, v)| v) {
         Some((_, v)) => *v,
         _ => 0,
@@ -129,10 +129,14 @@ fn report(term: &mut Box<term::Terminal<Box<Writer:Send>>:Send>, games: uint, to
 }
 
 // The entry point for playing a game, usually used via the shorthand play!() macro.
-pub fn play(player_list: ~[Box<Player:Send+Share>]) {
+pub fn play(player_list: Vec<Box<Player+Send+Share>>) {
     let mut term = term::stdout().unwrap();
     let args = std::os::args();
-    let n: uint = if args.len() > 1 { from_str(args.get(1).as_slice()).unwrap() } else { 1000 };
+    let n: uint = if args.len() > 1 {
+        from_str(args.get(1).as_slice()).unwrap()
+    } else {
+        1000
+    };
     writeln!(term, "\nPlaying {} games...", n);
 
     let trash = Vec::new();
@@ -151,7 +155,10 @@ pub fn play(player_list: ~[Box<Player:Send+Share>]) {
 
     let (reporter, receiver) = comm::channel();
 
-    let player_arcs: Vec<Arc<Box<Player:Send+Share>>> = player_list.move_iter().map(|player| Arc::new(player)).collect();
+    let player_arcs = player_list
+        .move_iter()
+        .map(|player| Arc::new(player))
+        .collect::<Vec<Arc<Box<Player+Send+Share>>>>();
 
     let mut scores = HashMap::<String,uint>::new();
     for player in player_arcs.iter() {
@@ -177,10 +184,10 @@ pub fn play(player_list: ~[Box<Player:Send+Share>]) {
                     deck.push_all_move(card::ESTATE.create_copies(3));
                     rng.shuffle(deck.as_mut_slice());
 
-                    let players = Rc::new(RefCell::new(DList::<Arc<Box<Player:Send+Share>>>::new()));
+                    let players = Rc::new(RefCell::new(DList::<Arc<Box<Player+Send+Share>>>::new()));
                     let game = Rc::new(RefCell::new(GameState{ supply: supply, trash: trash }));
                     let mut player_state_map = HashMap::<&'static str, PlayerState>::new();
-                    let other_players: PlayerList = player_arcs.clone().move_iter().collect();
+                    let other_players = player_arcs.clone().move_iter().collect::<PlayerList>();
 
                     for p in player_arcs.move_iter() {
                         let mut other_players = other_players.clone();
@@ -199,7 +206,6 @@ pub fn play(player_list: ~[Box<Player:Send+Share>]) {
                             actions:       0,
                             buys:          0,
                             buying_power:  0,
-                            score:         0,
                         });
                         (*(*players).borrow_mut()).push_back(p);
                     }
@@ -261,7 +267,7 @@ pub fn play_game(players: Rc<RefCell<PlayerList>>) -> GameResult {
         }
     }
 
-    let mut player_results: Vec<PlayerResult> = (*players).borrow_mut().iter()
+    let mut player_results = (*players).borrow_mut().iter()
         .map(|p| {
             let name = p.name();
             with_player(name, |state| {
@@ -277,11 +283,12 @@ pub fn play_game(players: Rc<RefCell<PlayerList>>) -> GameResult {
                     }).collect(),
                 }
             })
-        }).collect();
+        }).collect::<Vec<PlayerResult>>();
     player_results.sort_by(|a, ref b| b.vp.cmp(&a.vp));
 
     let highest_score = player_results.get(0).vp;
     let tie = player_results.iter().skip(1).any(|result| result.vp == highest_score);
+
     GameResult{
         tie: tie,
         winner: player_results.get(0).name,
@@ -300,6 +307,8 @@ pub fn get_available_money() -> uint {
     })
 }
 
+// get_action_count() returns the number of actions left for the current
+// player.
 pub fn get_action_count() -> uint {
     with_active_player(|player| player.actions)
 }
@@ -423,9 +432,11 @@ pub fn play_all_money() {
 
 // buy() buys a card from the supply, returning one of three possible
 // errors:
+//
 //   1. NotInSupply, if the card is not available in this game
 //   2. EmptyPile, if there are no more available to buy
 //   3. NotEnoughMoney(difference), if the player doesn't have the money
+//
 // On success, the appropriate supply count is decremented and a copy
 // of the card is added to the player's discard pile.
 pub fn buy(c: Card) -> DominionResult {
@@ -457,7 +468,8 @@ pub fn count(c: Card) -> Option<uint> {
 /* ------------------------ Private Methods ------------------------ */
 
 
-fn take_turn(p: &Box<Player:Send+Share>) {
+// take_turn() takes a turn for the current player.
+fn take_turn(p: &Box<Player+Send+Share>) {
     with_active_player(|player| {
         player.new_hand();
         player.actions = 1;
@@ -470,18 +482,20 @@ fn take_turn(p: &Box<Player:Send+Share>) {
     });
 }
 
+// get_empty_limit() returns the number of piles that need to be empty
+// for the game to end, where n is the number of players.
 fn get_empty_limit(n: uint) -> uint {
-    if n < 2 {
-        fail!("Not enough players!");
-    } else if n > 6 {
-        fail!("Too many players!");
-    }
     match n {
+        0..1 => fail!("Not enough players!"),
         2..4 => 3,
-        _ => 4,
+        5..6 => 4,
+        _    => fail!("Too many players!"),
     }
 }
 
+// is_game_finished() returns true if the game is finished, false if it's
+// not. A game ends when either the Province pile empties out, or the number
+// of empty piles is equal to or greater than the empty limit.
 fn is_game_finished(game: &GameState, empty_limit: uint) -> bool {
     if *game.supply.find(&card::PROVINCE.to_str()).unwrap() == 0 {
         true
@@ -491,11 +505,13 @@ fn is_game_finished(game: &GameState, empty_limit: uint) -> bool {
     }
 }
 
+// with_player() performs an arbitrary action with the player of the given
+// name.
 fn with_player<T>(player: &'static str, f: |&mut PlayerState| -> T) -> T {
-    let result: T = f((*state_map.get().unwrap().borrow_mut()).get_mut(&player));
-    result
+    f((*state_map.get().unwrap().borrow_mut()).get_mut(&player))
 }
 
+// with_active_player() performs an arbitrary action with the active player.
 fn with_active_player<T>(f: |&mut PlayerState| -> T) -> T {
     match active_player.get() {
         None => fail!("No active player!"),
@@ -503,6 +519,8 @@ fn with_active_player<T>(f: |&mut PlayerState| -> T) -> T {
     }
 }
 
+// with_other_players() performs an arbitrary action on all players but the
+// active player, starting to the active player's left.
 fn with_other_players(f: |&mut PlayerState|) {
     let others = with_active_player(|player| player.other_players.clone());
     let states_ref = state_map.get().unwrap();
@@ -512,8 +530,8 @@ fn with_other_players(f: |&mut PlayerState|) {
     }
 }
 
-// attack() calls f on each other player, but only if they don't
-// have a Moat in hand and want to block it.
+// attack() does the same thing as with_other_players(), but takes the
+// potential existence of a Moat into account.
 fn attack(f: |&mut PlayerState|) {
     let others = with_active_player(|player| player.other_players.clone());
     let states_ref = state_map.get().unwrap();
@@ -530,10 +548,10 @@ fn attack(f: |&mut PlayerState|) {
 
 /* ------------------------ PlayerState ------------------------ */
 
-// TODO: find a way to derive Default
+// TODO: derive Default?
 pub struct PlayerState {
     game_ref: Rc<RefCell<GameState>>,
-    myself: Arc<Box<Player:Send+Share>>,
+    myself: Arc<Box<Player+Send+Share>>,
     other_players: PlayerList,
 
 	deck: Vec<Card>,
@@ -544,10 +562,11 @@ pub struct PlayerState {
 	actions: uint,
 	buys: uint,
 	buying_power: uint,
-	score: int, // for calculating the final score
 }
 
 impl PlayerState {
+    // hand_contains() returns true if and only if this player's hand
+    // contains a copy of the given card.
     fn hand_contains(&mut self, c: Card) -> bool {
         self.hand.iter().any(|&x| x == c)
     }
@@ -602,6 +621,8 @@ impl PlayerState {
 		}
 	}
 
+    // count() returns the number of copies of a card available in the supply,
+    // or None if it wasn't included in this game.
     fn count(&mut self, c: Card) -> Option<uint> {
         self.with_supply(|supply| {
             match supply.find(&c.to_str()) {
@@ -656,6 +677,8 @@ impl PlayerState {
         self.deck.shift()
     }
 
+    // next_n_cards() removes and returns the top n cards from the deck,
+    // shuffling the discard pile to make a new deck if necessary.
     fn next_n_cards(&mut self, n: uint) -> Vec<Card> {
         let mut cards = Vec::with_capacity(n);
         for _ in range(0, n) {
@@ -667,6 +690,8 @@ impl PlayerState {
         cards
     }
 
+    // mill() takes the top card from the deck and places it in the
+    // discard pile.
     #[allow(dead_code)]
     fn mill(&mut self) {
         match self.next_card() {
@@ -675,6 +700,7 @@ impl PlayerState {
         }
     }
 
+    // draw() takes the top card from the deck and places it in the hand.
 	fn draw(&mut self) -> Option<Card> {
         match self.next_card() {
             Some(c) => {
@@ -685,6 +711,8 @@ impl PlayerState {
         }
 	}
 
+    // remove_from_hand() removes the given card from this player's hand,
+    // returning true if it was found, or false if it wasn't.
     fn remove_from_hand(&mut self, c: Card) -> bool {
 		match self.hand.iter().enumerate().find(|&(_,&x)| x == c) {
             None => false,
@@ -719,6 +747,8 @@ impl PlayerState {
         }
 	}
 
+    // trash_from_player() is like trash(), but the trashed card must
+    // currently be in play.
     fn trash_from_play(&mut self, c: Card) -> DominionResult {
 		match self.in_play.iter().enumerate().find(|&(_,&x)| x == c) {
 			None => Err(error::NotInHand),
@@ -740,22 +770,13 @@ impl PlayerState {
             .fold(0, |a, &b| a + b.victory_points())
 	}
 
-    /*
-    #[allow(dead_code)]
-	fn with_left_player<U>(&mut self, f: |&mut PlayerState| -> U) -> U {
-        f((*self.other_players).borrow_mut().mut_iter().next().unwrap())
-	}
-
-    #[allow(dead_code)]
-	fn with_right_player<U>(&mut self, f: |&mut PlayerState| -> U) -> U {
-        f((*self.other_players).borrow_mut().mut_rev_iter().next().unwrap())
-	}
-    */
-
+    // with_mut_supply() executes an arbitrary action on the game's supply,
+    // mutably.
 	fn with_mut_supply<U>(&mut self, f: |&mut Supply| -> U) -> U {
         f(&mut (*self.game_ref).borrow_mut().supply)
 	}
 
+    // with_supply() executes an arbitrary action on the game's supply.
 	fn with_supply<U>(&mut self, f: |&Supply| -> U) -> U {
         f(&(*self.game_ref).borrow_mut().supply)
 	}
@@ -782,6 +803,7 @@ pub enum ActionInput {
 }
 
 impl ActionInput {
+    #[inline]
 	pub fn is_discard(&self) -> bool {
 		match *self {
 			Discard(_) => true,
@@ -789,6 +811,7 @@ impl ActionInput {
 		}
 	}
 
+    #[inline]
 	pub fn is_trash(&self) -> bool {
 		match *self {
 			Trash(_) => true,
@@ -796,6 +819,7 @@ impl ActionInput {
 		}
 	}
 
+    #[inline]
 	pub fn is_gain(&self) -> bool {
 		match *self {
 			Gain(_) => true,
@@ -803,6 +827,7 @@ impl ActionInput {
 		}
 	}
 
+    #[inline]
     pub fn is_confirm(&self) -> bool {
         match *self {
             Confirm => true,
@@ -810,6 +835,7 @@ impl ActionInput {
         }
     }
 
+    #[inline]
     pub fn is_repeat(&self) -> bool {
         match *self {
             Repeat(_, _) => true,
@@ -817,6 +843,7 @@ impl ActionInput {
         }
     }
 
+    #[inline]
 	pub fn get_card(&self) -> Card {
 		match *self {
 			Discard(c) => c,
@@ -928,6 +955,7 @@ impl CardDef {
         fail!("Can't get treasure value of non-Money card!");
     }
 
+    #[inline]
     pub fn victory_points(&self) -> int {
         for t in self.types.iter() {
             match *t {
@@ -957,6 +985,8 @@ impl CardDef {
 pub struct GameResult {
     tie: bool,
     winner: &'static str,
+
+    #[allow(dead_code)]
     player_results: Vec<PlayerResult>,
 }
 
@@ -966,6 +996,8 @@ pub struct GameResult {
 pub struct PlayerResult {
     name: &'static str,
     vp: int,
+
+    #[allow(dead_code)]
     victory_cards: Vec<Card>,
 }
 
@@ -980,7 +1012,7 @@ pub type DominionResult = Result<(), error::Error>;
 
 pub type PlayerFunc = fn(&mut PlayerState);
 
-pub type PlayerList = DList<Arc<Box<Player:Send+Share>>>;
+pub type PlayerList = DList<Arc<Box<Player+Send+Share>>>;
 
 pub type Supply = HashMap<String, uint>;
 
