@@ -1,4 +1,6 @@
 
+//! Card definitions.
+
 use std::vec::Vec;
 use super::{
     with_active_player, with_other_players, attack,

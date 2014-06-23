@@ -1,13 +1,20 @@
 
+//! Strategy examples.
+
 use super::card;
 
-// Big Money is the most basic Dominion strategy. It focuses only on buying
-// money and victory points, using the following rules:
-//   1. With 8 or more money, buy a province (duh)
-//   2. With 6-7 money, buy a gold.
-//   3. With 3-4 money, buy a silver
-//   4. With 5 money, if there are five or fewer provinces left, buy a duchy.
-//        Otherwise, buy a silver.
+/// Big Money.
+///
+/// This is the most basic Dominion strategy. It focuses only on buying
+/// money and victory points, using the following rules:
+///
+///   1. With 8 or more money, buy a province (duh).
+///   2. With 6-7 money, buy a gold.
+///   3. With 3-4 money, buy a silver
+///   4. With 5 money...
+///         a) If there are five or fewer provinces left, buy a duchy.
+///         v) Otherwise, buy a silver.
+///
 pub fn big_money() {
     ::play_all_money();
     match ::get_buying_power() {
@@ -25,6 +32,10 @@ pub fn big_money() {
     }.unwrap();
 }
 
+/// Big Money Smithy.
+///
+/// Same basic premise as Big Money, except one Smithy will be purchased
+/// with exactly 4 money.
 pub fn big_money_smithy() {
     if ::hand_contains(card::SMITHY) {
         ::play_card(card::SMITHY).unwrap();
@@ -52,6 +63,10 @@ pub fn big_money_smithy() {
     }.unwrap();
 }
 
+/// Big Money Witch.
+///
+/// Same basic premise as Big Money, except one Witch will be purchased
+/// with exactly 5 money.
 pub fn big_money_witch() {
     if ::hand_contains(card::WITCH) {
         ::play_card(card::WITCH).unwrap();
@@ -73,8 +88,4 @@ pub fn big_money_witch() {
         6..7 => ::buy(card::GOLD),
         _    => ::buy(card::PROVINCE),
     }.unwrap();
-}
-
-pub fn cellaring() {
-	::play_card(card::CELLAR).unwrap();
 }
