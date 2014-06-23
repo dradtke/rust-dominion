@@ -1,7 +1,50 @@
 #![crate_id = "dominion#0.1"]
 #![crate_type = "lib"]
 
-//! This module provides an API for writing Dominion AI's in Rust.
+//! This module provides an API for writing Dominion AI's in Rust. AI's are created by
+//! defining a new empty struct and implementing the `Player` trait, like so:
+//!
+//! ~~~
+//! #[phase(plugin, link)] extern crate dominion;
+//!
+//! struct Me;
+//! impl dominion::Player for Me {
+//!     fn name() -> &'static str { "Me" }
+//!     fn take_turn() {
+//!         dominion::strat::big_money();
+//!     }
+//! }
+//!
+//! struct Them;
+//! impl dominion::Player for Them {
+//!     fn name() -> &'static str { "Them" }
+//!     fn take_turn() {
+//!         dominion::strat::big_money();
+//!     }
+//! }
+//!
+//! fn main() {
+//!     dominion!(Me, Them);
+//! }
+//! ~~~
+//!
+//! This example is pretty simple, but demonstrates how new AI's are created. Both
+//! of these players use the built-in Big Money strategy, which is a good first test
+//! for successful strategies; if you can't beat Big Money reliably, then you really
+//! need to think about going back to the drawing board.
+//!
+//! Strategies can be made more complex by overriding the other methods provided by
+//! the `Player` trait. Otherwise, everything takes place in `take_turn()`, which will
+//! be executed every time it's your AI's turn to play.
+//!
+//! Actions like playing and buying cards are achieved by using the public methods
+//! exposed by this module. The game keeps track of who the active player is, so
+//! there's no need to provide any player information in these methods.
+//!
+//! This library by default plays 1,000 games, unless a different number is
+//! specified as an argument. For example, compiling the above example into an
+//! executable called `main` and running `./main` will play 1,000 games, but running
+//! `./main 100` will only play 100.
 
 #![feature(globs)]
 #![feature(macro_rules)]

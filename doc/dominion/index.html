@@ -38,8 +38,50 @@
     </nav>
 
     <section id='main' class="content mod">
-<h1 class='fqn'>Crate <a class='mod' href=''>dominion</a><a class='source' id='src-0' href='../src/dominion/dominion/mod.rs.html#1-1062'>[src]</a></h1>
-<div class='docblock'><p>This module provides an API for writing Dominion AI&#39;s in Rust.</p>
+<h1 class='fqn'>Crate <a class='mod' href=''>dominion</a><a class='source' id='src-0' href='../src/dominion/dominion/mod.rs.html#1-1105'>[src]</a></h1>
+<div class='docblock'><p>This module provides an API for writing Dominion AI&#39;s in Rust. AI&#39;s are created by
+defining a new empty struct and implementing the <code>Player</code> trait, like so:</p>
+<pre class='rust '>
+<span class='attribute'>#[<span class='ident'>phase</span>(<span class='ident'>plugin</span>, <span class='ident'>link</span>)]</span> <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>dominion</span>;
+
+<span class='kw'>struct</span> <span class='ident'>Me</span>;
+<span class='kw'>impl</span> <span class='ident'>dominion</span>::<span class='ident'>Player</span> <span class='kw'>for</span> <span class='ident'>Me</span> {
+    <span class='kw'>fn</span> <span class='ident'>name</span>() <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span> { <span class='string'>&quot;Me&quot;</span> }
+    <span class='kw'>fn</span> <span class='ident'>take_turn</span>() {
+        <span class='ident'>dominion</span>::<span class='ident'>strat</span>::<span class='ident'>big_money</span>();
+    }
+}
+
+<span class='kw'>struct</span> <span class='ident'>Them</span>;
+<span class='kw'>impl</span> <span class='ident'>dominion</span>::<span class='ident'>Player</span> <span class='kw'>for</span> <span class='ident'>Them</span> {
+    <span class='kw'>fn</span> <span class='ident'>name</span>() <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span> { <span class='string'>&quot;Them&quot;</span> }
+    <span class='kw'>fn</span> <span class='ident'>take_turn</span>() {
+        <span class='ident'>dominion</span>::<span class='ident'>strat</span>::<span class='ident'>big_money</span>();
+    }
+}
+
+<span class='kw'>fn</span> <span class='ident'>main</span>() {
+    <span class='macro'>dominion</span><span class='macro'>!</span>(<span class='ident'>Me</span>, <span class='ident'>Them</span>);
+}
+</pre>
+
+<p>This example is pretty simple, but demonstrates how new AI&#39;s are created. Both
+of these players use the built-in Big Money strategy, which is a good first test
+for successful strategies; if you can&#39;t beat Big Money reliably, then you really
+need to think about going back to the drawing board.</p>
+
+<p>Strategies can be made more complex by overriding the other methods provided by
+the <code>Player</code> trait. Otherwise, everything takes place in <code>take_turn()</code>, which will
+be executed every time it&#39;s your AI&#39;s turn to play.</p>
+
+<p>Actions like playing and buying cards are achieved by using the public methods
+exposed by this module. The game keeps track of who the active player is, so
+there&#39;s no need to provide any player information in these methods.</p>
+
+<p>This library by default plays 1,000 games, unless a different number is
+specified as an argument. For example, compiling the above example into an
+executable called <code>main</code> and running <code>./main</code> will play 1,000 games, but running
+<code>./main 100</code> will only play 100.</p>
 </div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
 <table>
                     <tr>
