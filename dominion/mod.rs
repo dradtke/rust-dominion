@@ -76,7 +76,7 @@ pub mod strat;
 macro_rules! dominion(
     ($($player:ident),+) => ({
         dominion::play(vec!($(
-            box $player as Box<dominion::Player+Send+Share>,
+            box $player as Box<dominion::Player + Send + Share>,
         )+));
     })
 )
@@ -280,7 +280,7 @@ pub fn number_of(c: Card) -> uint {
 }
 
 /// The entry point for playing a game, usually used via the shorthand `play!` macro.
-pub fn play(player_list: Vec<Box<Player+Send+Share>>) {
+pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
     let mut term = term::stdout().unwrap();
     let args = std::os::args();
     let n: uint = if args.len() > 1 {
@@ -309,7 +309,7 @@ pub fn play(player_list: Vec<Box<Player+Send+Share>>) {
     let player_arcs = player_list
         .move_iter()
         .map(|player| Arc::new(player))
-        .collect::<Vec<Arc<Box<Player+Send+Share>>>>();
+        .collect::<Vec<Arc<Box<Player + Send + Share>>>>();
 
     let mut scores = HashMap::<String,uint>::new();
     for player in player_arcs.iter() {
@@ -335,7 +335,7 @@ pub fn play(player_list: Vec<Box<Player+Send+Share>>) {
                     deck.push_all_move(card::ESTATE.create_copies(3));
                     rng.shuffle(deck.as_mut_slice());
 
-                    let players = Rc::new(RefCell::new(DList::<Arc<Box<Player+Send+Share>>>::new()));
+                    let players = Rc::new(RefCell::new(DList::<Arc<Box<Player + Send + Share>>>::new()));
                     let game = Rc::new(RefCell::new(GameState{ supply: supply, trash: trash }));
                     let mut player_state_map = HashMap::<&'static str, PlayerState>::new();
                     let other_players = player_arcs.clone().move_iter().collect::<PlayerList>();
@@ -523,7 +523,7 @@ fn report(term: &mut Box<term::Terminal<Box<Writer+Send>>+Send>, games: uint, to
     term.flush();
 }
 
-fn take_turn(p: &Box<Player+Send+Share>) {
+fn take_turn(p: &Box<Player + Send + Share>) {
     with_active_player(|player| {
         player.new_hand();
         player.actions = 1;
@@ -593,17 +593,17 @@ fn attack(f: |&mut PlayerState|) {
 // TODO: derive Default?
 struct PlayerState {
     game_ref: Rc<RefCell<GameState>>,
-    myself: Arc<Box<Player+Send+Share>>,
+    myself: Arc<Box<Player + Send + Share>>,
     other_players: PlayerList,
 
-	deck: Vec<Card>,
-	discard: Vec<Card>,
-	in_play: Vec<Card>,
-	hand: Vec<Card>,
+    deck: Vec<Card>,
+    discard: Vec<Card>,
+    in_play: Vec<Card>,
+    hand: Vec<Card>,
 
-	actions: uint,
-	buys: uint,
-	buying_power: uint,
+    actions: uint,
+    buys: uint,
+    buying_power: uint,
 }
 
 impl PlayerState {
@@ -651,17 +651,17 @@ impl PlayerState {
         Ok(())
     }
 
-	// curse() gives the player a curse card and depletes one from the supply.
-	fn curse(&mut self) -> Result {
-		let pile = self.count(card::CURSE).unwrap();
-		if pile == 0 {
-			Err(EmptyPile)
-		} else {
-			self.with_mut_supply(|supply| supply.insert(card::CURSE.to_str(), pile - 1));
-			self.discard.push(card::CURSE);
-			Ok(())
-		}
-	}
+    // curse() gives the player a curse card and depletes one from the supply.
+    fn curse(&mut self) -> Result {
+        let pile = self.count(card::CURSE).unwrap();
+        if pile == 0 {
+            Err(EmptyPile)
+        } else {
+            self.with_mut_supply(|supply| supply.insert(card::CURSE.to_str(), pile - 1));
+            self.discard.push(card::CURSE);
+            Ok(())
+        }
+    }
 
     // count() returns the number of copies of a card available in the supply,
     // or None if it wasn't included in this game.
@@ -674,39 +674,39 @@ impl PlayerState {
         })
     }
 
-	// new_hand() draws up to five cards from the deck and places them in
-	// the player's hand.
-	fn new_hand(&mut self) {
-		for _ in range(0, 5) {
-			self.draw();
-		}
-	}
+    // new_hand() draws up to five cards from the deck and places them in
+    // the player's hand.
+    fn new_hand(&mut self) {
+        for _ in range(0, 5) {
+            self.draw();
+        }
+    }
 
-	// discard_hand() puts all of the cards the player's hand and in-play into the
-	// discard pile.
-	fn discard_hand(&mut self) {
-		loop {
-			match self.hand.shift() {
-				Some(c) => self.discard.push(c),
-				None => break,
-			}
-		}
-		loop {
-			match self.in_play.shift() {
-				Some(c) => self.discard.push(c),
-				None => break,
-			}
-		}
-	}
+    // discard_hand() puts all of the cards the player's hand and in-play into the
+    // discard pile.
+    fn discard_hand(&mut self) {
+        loop {
+            match self.hand.shift() {
+                Some(c) => self.discard.push(c),
+                None => break,
+            }
+        }
+        loop {
+            match self.in_play.shift() {
+                Some(c) => self.discard.push(c),
+                None => break,
+            }
+        }
+    }
 
     // discard_deck() puts all of the cards from the deck into the discard pile.
     fn discard_deck(&mut self) {
-		loop {
-			match self.deck.shift() {
-				Some(c) => self.discard.push(c),
-				None => break,
-			}
-		}
+        loop {
+            match self.deck.shift() {
+                Some(c) => self.discard.push(c),
+                None => break,
+            }
+        }
     }
 
     // next_card() removes and returns the top card from the deck, shuffling
@@ -743,7 +743,7 @@ impl PlayerState {
     }
 
     // draw() takes the top card from the deck and places it in the hand.
-	fn draw(&mut self) -> Option<Card> {
+    fn draw(&mut self) -> Option<Card> {
         match self.next_card() {
             Some(c) => {
                 self.hand.push(c);
@@ -751,12 +751,12 @@ impl PlayerState {
             }
             None => None
         }
-	}
+    }
 
     // remove_from_hand() removes the given card from this player's hand,
     // returning true if it was found, or false if it wasn't.
     fn remove_from_hand(&mut self, c: Card) -> bool {
-		match self.hand.iter().enumerate().find(|&(_,&x)| x == c) {
+        match self.hand.iter().enumerate().find(|&(_,&x)| x == c) {
             None => false,
             Some((i,_)) => {
                 self.hand.remove(i);
@@ -765,63 +765,63 @@ impl PlayerState {
         }
     }
 
-	// discard() discards a card from the player's hand, adding it to the
-	// discard pile. If it's not in the player's hand than a NotInHand
-	// error is returned.
-	fn discard(&mut self, c: Card) -> Result {
+    // discard() discards a card from the player's hand, adding it to the
+    // discard pile. If it's not in the player's hand than a NotInHand
+    // error is returned.
+    fn discard(&mut self, c: Card) -> Result {
         if !self.remove_from_hand(c) {
             Err(NotInHand)
         } else {
             self.discard.push(c);
             Ok(())
         }
-	}
+    }
 
-	// trash() trashes a card from the player's hand, adding it to the
-	// shared trash pile. If it's not in the player's hand than a NotInHand
-	// error is returned.
-	fn trash(&mut self, c: Card) -> Result {
+    // trash() trashes a card from the player's hand, adding it to the
+    // shared trash pile. If it's not in the player's hand than a NotInHand
+    // error is returned.
+    fn trash(&mut self, c: Card) -> Result {
         if !self.remove_from_hand(c) {
             Err(NotInHand)
         } else {
             (*self.game_ref).borrow_mut().trash.push(c);
             Ok(())
         }
-	}
+    }
 
     // trash_from_player() is like trash(), but the trashed card must
     // currently be in play.
     fn trash_from_play(&mut self, c: Card) -> Result {
-		match self.in_play.iter().enumerate().find(|&(_,&x)| x == c) {
-			None => Err(NotInHand),
-			Some((i,_)) => {
-				let card = self.in_play.remove(i).unwrap();
+        match self.in_play.iter().enumerate().find(|&(_,&x)| x == c) {
+            None => Err(NotInHand),
+            Some((i,_)) => {
+                let card = self.in_play.remove(i).unwrap();
                 (*self.game_ref).borrow_mut().trash.push(card);
-				Ok(())
-			},
-		}
+                Ok(())
+            },
+        }
     }
 
-	// calculate_score() counts up the total number of points and saves it
-	// in the local score variable.
-	fn calculate_score(&mut self) -> int {
+    // calculate_score() counts up the total number of points and saves it
+    // in the local score variable.
+    fn calculate_score(&mut self) -> int {
         self.deck.iter()
             .chain(self.discard.iter())
             .chain(self.hand.iter())
             .filter(|&c| c.is_victory() || c.is_curse())
             .fold(0, |a, &b| a + b.victory_points())
-	}
+    }
 
     // with_mut_supply() executes an arbitrary action on the game's supply,
     // mutably.
-	fn with_mut_supply<U>(&mut self, f: |&mut Supply| -> U) -> U {
+    fn with_mut_supply<U>(&mut self, f: |&mut Supply| -> U) -> U {
         f(&mut (*self.game_ref).borrow_mut().supply)
-	}
+    }
 
     // with_supply() executes an arbitrary action on the game's supply.
-	fn with_supply<U>(&mut self, f: |&Supply| -> U) -> U {
+    fn with_supply<U>(&mut self, f: |&Supply| -> U) -> U {
         f(&(*self.game_ref).borrow_mut().supply)
-	}
+    }
 }
 
 
@@ -839,13 +839,13 @@ struct GameState {
 /// Input parameters for card plays.
 pub enum ActionInput {
     /// Discard a card.
-	Discard(Card),
+    Discard(Card),
 
     /// Trash a card.
-	Trash(Card),
+    Trash(Card),
 
     /// Gain a card.
-	Gain(Card),
+    Gain(Card),
 
     /// Confirm an effect, i.e. discarding your deck with Chancellor.
     Confirm,
@@ -860,28 +860,28 @@ pub enum ActionInput {
 
 impl ActionInput {
     #[inline]
-	fn is_discard(&self) -> bool {
-		match *self {
-			Discard(_) => true,
-			_ => false,
-		}
-	}
+    fn is_discard(&self) -> bool {
+        match *self {
+            Discard(_) => true,
+            _ => false,
+        }
+    }
 
     #[inline]
-	fn is_trash(&self) -> bool {
-		match *self {
-			Trash(_) => true,
-			_ => false,
-		}
-	}
+    fn is_trash(&self) -> bool {
+        match *self {
+            Trash(_) => true,
+            _ => false,
+        }
+    }
 
     #[inline]
-	fn is_gain(&self) -> bool {
-		match *self {
-			Gain(_) => true,
-			_ => false,
-		}
-	}
+    fn is_gain(&self) -> bool {
+        match *self {
+            Gain(_) => true,
+            _ => false,
+        }
+    }
 
     #[inline]
     fn is_confirm(&self) -> bool {
@@ -900,14 +900,14 @@ impl ActionInput {
     }
 
     #[inline]
-	fn get_card(&self) -> Card {
-		match *self {
-			Discard(c) => c,
-			Trash(c) => c,
+    fn get_card(&self) -> Card {
+        match *self {
+            Discard(c) => c,
+            Trash(c) => c,
             Gain(c) => c,
             _ => fail!("Can't get card of unsupported input type!"),
-		}
-	}
+        }
+    }
 }
 
 
@@ -947,9 +947,9 @@ struct CardDef {
 }
 
 impl PartialEq for CardDef {
-	fn eq(&self, other: &CardDef) -> bool {
-		self.name.eq(&other.name)
-	}
+    fn eq(&self, other: &CardDef) -> bool {
+        self.name.eq(&other.name)
+    }
 }
 
 impl fmt::Show for CardDef {
@@ -1044,7 +1044,7 @@ pub enum Error {
     NoBuys,
     InvalidPlay,
     NotInSupply,
-	NotInHand,
+    NotInHand,
     EmptyPile,
     NotEnoughMoney(uint), // how much more is needed to buy the card
 }
@@ -1098,7 +1098,7 @@ type ActionFunc = fn(&[ActionInput]);
 
 type PlayerFunc = fn(&mut PlayerState);
 
-type PlayerList = DList<Arc<Box<Player+Send+Share>>>;
+type PlayerList = DList<Arc<Box<Player + Send + Share>>>;
 
 type Supply = HashMap<String, uint>;
 
