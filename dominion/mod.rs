@@ -1,4 +1,4 @@
-#![crate_id = "dominion#0.1"]
+#![crate_id = "dominion#0.1.0"]
 #![crate_type = "lib"]
 
 //! This module provides an API for writing Dominion AI's in Rust. AI's are created by
@@ -47,9 +47,11 @@
 //! `./main 100` will only play 100.
 
 #![feature(globs)]
+#![feature(struct_variant)]
 #![feature(macro_rules)]
 #![allow(unused_must_use)]
 
+extern crate getopts;
 extern crate sync;
 extern crate term;
 
@@ -57,10 +59,13 @@ use std::fmt;
 use std::cell::RefCell;
 use std::collections::{Deque,DList,HashMap};
 use std::comm;
+use std::io::{File};
 use std::mem;
+use std::os;
 use std::owned::Box;
 use std::rc::Rc;
 use std::task;
+use std::string::String;
 use std::vec::Vec;
 use sync::Arc;
 use std::rand::{task_rng,Rng};
@@ -168,14 +173,14 @@ pub trait Player {
 ///
 ///   1. NotInSupply, if the card is not available in this game
 ///   2. EmptyPile, if there are no more available to buy
-///   3. NotEnoughMoney(difference), if the player doesn't have the money
+///   3. NotEnoughMoney(need, have), if the player doesn't have the money
 ///
 /// On success, the appropriate supply count is decremented and a copy
 /// of the card is added to the player's discard pile.
 pub fn buy(c: Card) -> Result {
     let pile = match count(c) {
-        None => return Err(NotInSupply),
-        Some(0) => return Err(EmptyPile),
+        None => return Err(NotInSupply(c)),
+        Some(0) => return Err(EmptyPile(c)),
         Some(pile) => pile,
     };
     with_active_player(|player| {
@@ -186,7 +191,7 @@ pub fn buy(c: Card) -> Result {
             player.buying_power -= c.cost;
             Ok(())
         } else {
-            Err(NotEnoughMoney(c.cost - player.buying_power))
+            Err(NotEnoughMoney{need: c.cost, have: player.buying_power})
         }
     })
 }
@@ -282,12 +287,23 @@ pub fn number_of(c: Card) -> uint {
 /// The entry point for playing a game, usually used via the shorthand `play!` macro.
 pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
     let mut term = term::stdout().unwrap();
-    let args = std::os::args();
-    let n: uint = if args.len() > 1 {
-        from_str(args.get(1).as_slice()).unwrap()
+
+    let args = os::args().iter().map(|x| x.to_string()).collect::<Vec<String>>();
+    let opts = [
+        getopts::optopt("o", "output", "set debug output file name", "NAME"),
+    ];
+    let matches = match getopts::getopts(args.tail(), opts) {
+        Ok(m) => m,
+        Err(f) => fail!(f.to_str()),
+    };
+    let output_name = matches.opt_str("o");
+
+    let n: uint = if !matches.free.is_empty() {
+        from_str(matches.free.get(0).as_slice()).unwrap()
     } else {
         1000
     };
+
     writeln!(term, "\nPlaying {} games...", n);
 
     let trash = Vec::new();
@@ -368,14 +384,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
                     Err(e) => {
                         reporter.send(Err(e));
                     },
-                    Ok(results) => {
-                        // TODO: send more information?
-                        if results.tie {
-                            reporter.send(Ok(None));
-                        } else {
-                            reporter.send(Ok(Some(results.winner.into_string())));
-                        }
-                    },
+                    Ok(results) => reporter.send(Ok(results)),
                 }
             });
         }
@@ -384,18 +393,30 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
     let mut ties = 0;
     report(&mut term, 0, n, &scores, ties);
 
+    let mut output_file = output_name.clone().map(|x| File::create(&Path::new(x)).unwrap());
+
     for i in range(0, n) {
         match receiver.recv() {
             Err(e) => fail!("Dominion task failed: {}", e),
-            Ok(None) => ties += 1,
-            Ok(Some(ref winner)) => {
-                scores.insert_or_update_with(winner.clone(), 1, |_, v| *v += 1);
+            Ok(results) => {
+                if results.tie {
+                    ties += 1;
+                    output_file.mutate(|mut f| { f.write_line("[tie]"); f });
+                } else {
+                    scores.insert_or_update_with(String::from_str(results.winner), 1, |_, v| *v += 1);
+                    output_file.mutate(|mut f| { writeln!(f, "[winner: {}]", results.winner); f });
+                }
             },
         }
         report(&mut term, i+1, n, &scores, ties);
     }
 
+    output_file.mutate(|mut f| { f.fsync(); f });
     term.write_line("");
+    match output_name {
+        None    => (),
+        Some(x) => { writeln!(term, "Results saved to {}.", x); },
+    };
 }
 
 /// Plays all Money cards in the player's hand.
@@ -422,11 +443,11 @@ pub fn play_card(c: Card) -> Result {
 /// card is played, then the player's action count is set to 0.
 pub fn play_card_and(c: Card, input: &[ActionInput]) -> Result {
     if !c.is_money() && !c.is_action() {
-        return Err(InvalidPlay);
+        return Err(InvalidPlay(c));
     }
     let (action, result) = with_active_player(|player| -> (Option<ActionFunc>, Result) {
         match player.hand.iter().position(|&x| x == c) {
-            None => (None, Err(InvalidPlay)),
+            None => (None, Err(InvalidPlay(c))),
             Some(index) => {
                 player.in_play.push(player.hand.remove(index).unwrap());
                 if c.is_money() {
@@ -616,8 +637,8 @@ impl PlayerState {
     // gain() takes a card from the supply, putting it in the discard pile.
     fn gain(&mut self, c: Card) -> Result {
         let pile = match count(c) {
-            None => return Err(NotInSupply),
-            Some(0) => return Err(EmptyPile),
+            None => return Err(NotInSupply(c)),
+            Some(0) => return Err(EmptyPile(c)),
             Some(pile) => pile,
         };
         self.with_mut_supply(|supply| supply.insert(c.to_str(), pile - 1));
@@ -629,8 +650,8 @@ impl PlayerState {
     // the deck.
     fn gain_to_deck(&mut self, c: Card) -> Result {
         let pile = match count(c) {
-            None => return Err(NotInSupply),
-            Some(0) => return Err(EmptyPile),
+            None => return Err(NotInSupply(c)),
+            Some(0) => return Err(EmptyPile(c)),
             Some(pile) => pile,
         };
         self.with_mut_supply(|supply| supply.insert(c.to_str(), pile - 1));
@@ -642,8 +663,8 @@ impl PlayerState {
     // the hand.
     fn gain_to_hand(&mut self, c: Card) -> Result {
         let pile = match count(c) {
-            None => return Err(NotInSupply),
-            Some(0) => return Err(EmptyPile),
+            None => return Err(NotInSupply(c)),
+            Some(0) => return Err(EmptyPile(c)),
             Some(pile) => pile,
         };
         self.with_mut_supply(|supply| supply.insert(c.to_str(), pile - 1));
@@ -655,7 +676,7 @@ impl PlayerState {
     fn curse(&mut self) -> Result {
         let pile = self.count(card::CURSE).unwrap();
         if pile == 0 {
-            Err(EmptyPile)
+            Err(EmptyPile(card::CURSE))
         } else {
             self.with_mut_supply(|supply| supply.insert(card::CURSE.to_str(), pile - 1));
             self.discard.push(card::CURSE);
@@ -770,7 +791,7 @@ impl PlayerState {
     // error is returned.
     fn discard(&mut self, c: Card) -> Result {
         if !self.remove_from_hand(c) {
-            Err(NotInHand)
+            Err(NotInHand(c))
         } else {
             self.discard.push(c);
             Ok(())
@@ -782,7 +803,7 @@ impl PlayerState {
     // error is returned.
     fn trash(&mut self, c: Card) -> Result {
         if !self.remove_from_hand(c) {
-            Err(NotInHand)
+            Err(NotInHand(c))
         } else {
             (*self.game_ref).borrow_mut().trash.push(c);
             Ok(())
@@ -793,7 +814,7 @@ impl PlayerState {
     // currently be in play.
     fn trash_from_play(&mut self, c: Card) -> Result {
         match self.in_play.iter().enumerate().find(|&(_,&x)| x == c) {
-            None => Err(NotInHand),
+            None => Err(NotInHand(c)),
             Some((i,_)) => {
                 let card = self.in_play.remove(i).unwrap();
                 (*self.game_ref).borrow_mut().trash.push(card);
@@ -1042,23 +1063,23 @@ impl CardDef {
 pub enum Error {
     NoActions,
     NoBuys,
-    InvalidPlay,
-    NotInSupply,
-    NotInHand,
-    EmptyPile,
-    NotEnoughMoney(uint), // how much more is needed to buy the card
+    InvalidPlay(Card),
+    NotInSupply(Card),
+    EmptyPile(Card),
+    NotInHand(Card),
+    NotEnoughMoney { pub need: uint, pub have: uint },
 }
 
 impl fmt::Show for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", match *self {
-            NoActions         => format!("no actions"),
-            NoBuys            => format!("no buys"),
-            InvalidPlay       => format!("invalid play"),
-            NotInSupply       => format!("not in supply"),
-            NotInHand         => format!("not in hand"),
-            EmptyPile         => format!("empty pile"),
-            NotEnoughMoney(x) => format!("not enough money: need {} more", x),
+            NoActions                        => format!("no actions"),
+            NoBuys                           => format!("no buys"),
+            InvalidPlay(c)                   => format!("invalid play: {}", c),
+            NotInSupply(c)                   => format!("not in supply: {}", c),
+            EmptyPile(c)                     => format!("empty pile: {}", c),
+            NotInHand(c)                     => format!("not in hand: {}", c),
+            NotEnoughMoney{need: x, have: y} => format!("not enough money: need {}, but only have {}", x, y),
         })
     }
 }

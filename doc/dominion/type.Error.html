@@ -38,18 +38,23 @@
     </nav>
 
     <section id='main' class="content type">
-<h1 class='fqn'>Enum <a href='index.html'>dominion</a>::<a class='type' href=''>Error</a><a class='source' id='src-7176' href='../src/dominion/dominion/mod.rs.html#1042-1050'>[src]</a></h1>
+<h1 class='fqn'>Enum <a href='index.html'>dominion</a>::<a class='type' href=''>Error</a><a class='source' id='src-7202' href='../src/dominion/dominion/mod.rs.html#1043-1051'>[src]</a></h1>
 <pre class='rust enum'>pub enum Error {
     NoActions,
     NoBuys,
-    InvalidPlay,
-    NotInSupply,
-    NotInHand,
-    EmptyPile,
-    NotEnoughMoney(<a href='http://doc.rust-lang.org/std/primitive.uint.html'>uint</a>),
+    InvalidPlay(<a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>),
+    NotInSupply(<a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>),
+    EmptyPile(<a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>),
+    NotInHand(<a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>),
+    NotEnoughMoney {
+        pub need: <a href='http://doc.rust-lang.org/std/primitive.uint.html'>uint</a>,
+        pub have: <a href='http://doc.rust-lang.org/std/primitive.uint.html'>uint</a>,
+    },
 }</pre><div class='docblock'><p>A custom error type for reporting strategic errors.</p>
 </div><h2 class='variants'>Variants</h2>
-<table><tr><td id='variant.NoActions'><code>NoActions</code></td><td></td></tr><tr><td id='variant.NoBuys'><code>NoBuys</code></td><td></td></tr><tr><td id='variant.InvalidPlay'><code>InvalidPlay</code></td><td></td></tr><tr><td id='variant.NotInSupply'><code>NotInSupply</code></td><td></td></tr><tr><td id='variant.NotInHand'><code>NotInHand</code></td><td></td></tr><tr><td id='variant.EmptyPile'><code>EmptyPile</code></td><td></td></tr><tr><td id='variant.NotEnoughMoney'><code>NotEnoughMoney</code></td><td></td></tr></table><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/core/fmt/trait.Show.html' title='core::fmt::Show'>Show</a> for <a class='type' href='../dominion/type.Error.html' title='dominion::Error'>Error</a></code></h3><div class='methods'><h4 id='method.fmt' class='method'><code>fn <a href='#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+<table><tr><td id='variant.NoActions'><code>NoActions</code></td><td></td></tr><tr><td id='variant.NoBuys'><code>NoBuys</code></td><td></td></tr><tr><td id='variant.InvalidPlay'><code>InvalidPlay</code></td><td></td></tr><tr><td id='variant.NotInSupply'><code>NotInSupply</code></td><td></td></tr><tr><td id='variant.EmptyPile'><code>EmptyPile</code></td><td></td></tr><tr><td id='variant.NotInHand'><code>NotInHand</code></td><td></td></tr><tr><td id='variant.NotEnoughMoney'><code>NotEnoughMoney</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.NotEnoughMoney.field.need'><code>need</code></td><td></td></tr><tr><td id='variant.NotEnoughMoney.field.have'><code>have</code></td><td></td></tr></table></td></tr></table><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/core/fmt/trait.Show.html' title='core::fmt::Show'>Show</a> for <a class='type' href='../dominion/type.Error.html' title='dominion::Error'>Error</a></code></h3><div class='methods'><h4 id='method.fmt' class='method'><code>fn <a href='#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
 </div></section>
     <section id='search' class="content hidden"></section>
 

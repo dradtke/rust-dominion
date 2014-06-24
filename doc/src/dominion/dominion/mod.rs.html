@@ -1142,6 +1142,7 @@
 <span id='1103'>1103</span>
 <span id='1104'>1104</span>
 <span id='1105'>1105</span>
+<span id='1106'>1106</span>
 </pre><pre class='rust '>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>crate_id</span> <span class='op'>=</span> <span class='string'>&quot;dominion#0.1&quot;</span>]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>crate_type</span> <span class='op'>=</span> <span class='string'>&quot;lib&quot;</span>]</span>
@@ -1192,6 +1193,7 @@
 <span class='doccomment'>//! `./main 100` will only play 100.</span>
 
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>globs</span>)]</span>
+<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>struct_variant</span>)]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>macro_rules</span>)]</span>
 <span class='attribute'>#<span class='op'>!</span>[<span class='ident'>allow</span>(<span class='ident'>unused_must_use</span>)]</span>
 
@@ -1221,7 +1223,7 @@
 <span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>dominion</span>(
     ($(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>player</span>:<span class='ident'>ident</span>),<span class='op'>+</span>) <span class='op'>=&gt;</span> ({
         <span class='ident'>dominion</span>::<span class='ident'>play</span>(<span class='macro'>vec</span><span class='macro'>!</span>($(
-            <span class='kw'>box</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>player</span> <span class='kw'>as</span> <span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>dominion</span>::<span class='ident'>Player</span><span class='op'>+</span><span class='ident'>Send</span><span class='op'>+</span><span class='ident'>Share</span><span class='op'>&gt;</span>,
+            <span class='kw'>box</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>player</span> <span class='kw'>as</span> <span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>dominion</span>::<span class='ident'>Player</span> <span class='op'>+</span> <span class='ident'>Send</span> <span class='op'>+</span> <span class='ident'>Share</span><span class='op'>&gt;</span>,
         )<span class='op'>+</span>));
     })
 )
@@ -1313,14 +1315,14 @@
 <span class='doccomment'>///</span>
 <span class='doccomment'>///   1. NotInSupply, if the card is not available in this game</span>
 <span class='doccomment'>///   2. EmptyPile, if there are no more available to buy</span>
-<span class='doccomment'>///   3. NotEnoughMoney(difference), if the player doesn&#39;t have the money</span>
+<span class='doccomment'>///   3. NotEnoughMoney(need, have), if the player doesn&#39;t have the money</span>
 <span class='doccomment'>///</span>
 <span class='doccomment'>/// On success, the appropriate supply count is decremented and a copy</span>
 <span class='doccomment'>/// of the card is added to the player&#39;s discard pile.</span>
 <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>buy</span>(<span class='ident'>c</span>: <span class='ident'>Card</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
     <span class='kw'>let</span> <span class='ident'>pile</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>count</span>(<span class='ident'>c</span>) {
-        <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>NotInSupply</span>),
-        <span class='prelude-val'>Some</span>(<span class='number'>0</span>) <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>EmptyPile</span>),
+        <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>NotInSupply</span>(<span class='ident'>c</span>)),
+        <span class='prelude-val'>Some</span>(<span class='number'>0</span>) <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>EmptyPile</span>(<span class='ident'>c</span>)),
         <span class='prelude-val'>Some</span>(<span class='ident'>pile</span>) <span class='op'>=&gt;</span> <span class='ident'>pile</span>,
     };
     <span class='ident'>with_active_player</span>(<span class='op'>|</span><span class='ident'>player</span><span class='op'>|</span> {
@@ -1331,7 +1333,7 @@
             <span class='ident'>player</span>.<span class='ident'>buying_power</span> <span class='op'>-=</span> <span class='ident'>c</span>.<span class='ident'>cost</span>;
             <span class='prelude-val'>Ok</span>(())
         } <span class='kw'>else</span> {
-            <span class='prelude-val'>Err</span>(<span class='ident'>NotEnoughMoney</span>(<span class='ident'>c</span>.<span class='ident'>cost</span> <span class='op'>-</span> <span class='ident'>player</span>.<span class='ident'>buying_power</span>))
+            <span class='prelude-val'>Err</span>(<span class='ident'>NotEnoughMoney</span>{<span class='ident'>need</span>: <span class='ident'>c</span>.<span class='ident'>cost</span>, <span class='ident'>have</span>: <span class='ident'>player</span>.<span class='ident'>buying_power</span>})
         }
     })
 }
@@ -1425,7 +1427,7 @@
 }
 
 <span class='doccomment'>/// The entry point for playing a game, usually used via the shorthand `play!` macro.</span>
-<span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>play</span>(<span class='ident'>player_list</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span><span class='op'>+</span><span class='ident'>Send</span><span class='op'>+</span><span class='ident'>Share</span><span class='op'>&gt;&gt;</span>) {
+<span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>play</span>(<span class='ident'>player_list</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span> <span class='op'>+</span> <span class='ident'>Send</span> <span class='op'>+</span> <span class='ident'>Share</span><span class='op'>&gt;&gt;</span>) {
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>term</span> <span class='op'>=</span> <span class='ident'>term</span>::<span class='ident'>stdout</span>().<span class='ident'>unwrap</span>();
     <span class='kw'>let</span> <span class='ident'>args</span> <span class='op'>=</span> <span class='ident'>std</span>::<span class='ident'>os</span>::<span class='ident'>args</span>();
     <span class='kw'>let</span> <span class='ident'>n</span>: <span class='ident'>uint</span> <span class='op'>=</span> <span class='kw'>if</span> <span class='ident'>args</span>.<span class='ident'>len</span>() <span class='op'>&gt;</span> <span class='number'>1</span> {
@@ -1454,7 +1456,7 @@
     <span class='kw'>let</span> <span class='ident'>player_arcs</span> <span class='op'>=</span> <span class='ident'>player_list</span>
         .<span class='ident'>move_iter</span>()
         .<span class='ident'>map</span>(<span class='op'>|</span><span class='ident'>player</span><span class='op'>|</span> <span class='ident'>Arc</span>::<span class='ident'>new</span>(<span class='ident'>player</span>))
-        .<span class='ident'>collect</span>::<span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span><span class='op'>+</span><span class='ident'>Send</span><span class='op'>+</span><span class='ident'>Share</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;&gt;</span>();
+        .<span class='ident'>collect</span>::<span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span> <span class='op'>+</span> <span class='ident'>Send</span> <span class='op'>+</span> <span class='ident'>Share</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;&gt;</span>();
 
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>scores</span> <span class='op'>=</span> <span class='ident'>HashMap</span>::<span class='op'>&lt;</span><span class='ident'>String</span>,<span class='ident'>uint</span><span class='op'>&gt;</span>::<span class='ident'>new</span>();
     <span class='kw'>for</span> <span class='ident'>player</span> <span class='kw'>in</span> <span class='ident'>player_arcs</span>.<span class='ident'>iter</span>() {
@@ -1480,7 +1482,7 @@
                     <span class='ident'>deck</span>.<span class='ident'>push_all_move</span>(<span class='ident'>card</span>::<span class='ident'>ESTATE</span>.<span class='ident'>create_copies</span>(<span class='number'>3</span>));
                     <span class='ident'>rng</span>.<span class='ident'>shuffle</span>(<span class='ident'>deck</span>.<span class='ident'>as_mut_slice</span>());
 
-                    <span class='kw'>let</span> <span class='ident'>players</span> <span class='op'>=</span> <span class='ident'>Rc</span>::<span class='ident'>new</span>(<span class='ident'>RefCell</span>::<span class='ident'>new</span>(<span class='ident'>DList</span>::<span class='op'>&lt;</span><span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span><span class='op'>+</span><span class='ident'>Send</span><span class='op'>+</span><span class='ident'>Share</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span>::<span class='ident'>new</span>()));
+                    <span class='kw'>let</span> <span class='ident'>players</span> <span class='op'>=</span> <span class='ident'>Rc</span>::<span class='ident'>new</span>(<span class='ident'>RefCell</span>::<span class='ident'>new</span>(<span class='ident'>DList</span>::<span class='op'>&lt;</span><span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span> <span class='op'>+</span> <span class='ident'>Send</span> <span class='op'>+</span> <span class='ident'>Share</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span>::<span class='ident'>new</span>()));
                     <span class='kw'>let</span> <span class='ident'>game</span> <span class='op'>=</span> <span class='ident'>Rc</span>::<span class='ident'>new</span>(<span class='ident'>RefCell</span>::<span class='ident'>new</span>(<span class='ident'>GameState</span>{ <span class='ident'>supply</span>: <span class='ident'>supply</span>, <span class='ident'>trash</span>: <span class='ident'>trash</span> }));
                     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>player_state_map</span> <span class='op'>=</span> <span class='ident'>HashMap</span>::<span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span>, <span class='ident'>PlayerState</span><span class='op'>&gt;</span>::<span class='ident'>new</span>();
                     <span class='kw'>let</span> <span class='ident'>other_players</span> <span class='op'>=</span> <span class='ident'>player_arcs</span>.<span class='ident'>clone</span>().<span class='ident'>move_iter</span>().<span class='ident'>collect</span>::<span class='op'>&lt;</span><span class='ident'>PlayerList</span><span class='op'>&gt;</span>();
@@ -1567,11 +1569,11 @@
 <span class='doccomment'>/// card is played, then the player&#39;s action count is set to 0.</span>
 <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>play_card_and</span>(<span class='ident'>c</span>: <span class='ident'>Card</span>, <span class='ident'>input</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>ActionInput</span>]) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
     <span class='kw'>if</span> <span class='op'>!</span><span class='ident'>c</span>.<span class='ident'>is_money</span>() <span class='op'>&amp;&amp;</span> <span class='op'>!</span><span class='ident'>c</span>.<span class='ident'>is_action</span>() {
-        <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>InvalidPlay</span>);
+        <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>InvalidPlay</span>(<span class='ident'>c</span>));
     }
     <span class='kw'>let</span> (<span class='ident'>action</span>, <span class='ident'>result</span>) <span class='op'>=</span> <span class='ident'>with_active_player</span>(<span class='op'>|</span><span class='ident'>player</span><span class='op'>|</span> <span class='op'>-&gt;</span> (<span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>ActionFunc</span><span class='op'>&gt;</span>, <span class='prelude-ty'>Result</span>) {
         <span class='kw'>match</span> <span class='ident'>player</span>.<span class='ident'>hand</span>.<span class='ident'>iter</span>().<span class='ident'>position</span>(<span class='op'>|</span><span class='kw-2'>&amp;</span><span class='ident'>x</span><span class='op'>|</span> <span class='ident'>x</span> <span class='op'>==</span> <span class='ident'>c</span>) {
-            <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> (<span class='prelude-val'>None</span>, <span class='prelude-val'>Err</span>(<span class='ident'>InvalidPlay</span>)),
+            <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> (<span class='prelude-val'>None</span>, <span class='prelude-val'>Err</span>(<span class='ident'>InvalidPlay</span>(<span class='ident'>c</span>))),
             <span class='prelude-val'>Some</span>(<span class='ident'>index</span>) <span class='op'>=&gt;</span> {
                 <span class='ident'>player</span>.<span class='ident'>in_play</span>.<span class='ident'>push</span>(<span class='ident'>player</span>.<span class='ident'>hand</span>.<span class='ident'>remove</span>(<span class='ident'>index</span>).<span class='ident'>unwrap</span>());
                 <span class='kw'>if</span> <span class='ident'>c</span>.<span class='ident'>is_money</span>() {
@@ -1668,7 +1670,7 @@
     <span class='ident'>term</span>.<span class='ident'>flush</span>();
 }
 
-<span class='kw'>fn</span> <span class='ident'>take_turn</span>(<span class='ident'>p</span>: <span class='kw-2'>&amp;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span><span class='op'>+</span><span class='ident'>Send</span><span class='op'>+</span><span class='ident'>Share</span><span class='op'>&gt;</span>) {
+<span class='kw'>fn</span> <span class='ident'>take_turn</span>(<span class='ident'>p</span>: <span class='kw-2'>&amp;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span> <span class='op'>+</span> <span class='ident'>Send</span> <span class='op'>+</span> <span class='ident'>Share</span><span class='op'>&gt;</span>) {
     <span class='ident'>with_active_player</span>(<span class='op'>|</span><span class='ident'>player</span><span class='op'>|</span> {
         <span class='ident'>player</span>.<span class='ident'>new_hand</span>();
         <span class='ident'>player</span>.<span class='ident'>actions</span> <span class='op'>=</span> <span class='number'>1</span>;
@@ -1738,17 +1740,17 @@
 // TODO: derive Default?
 </span><span class='kw'>struct</span> <span class='ident'>PlayerState</span> {
     <span class='ident'>game_ref</span>: <span class='ident'>Rc</span><span class='op'>&lt;</span><span class='ident'>RefCell</span><span class='op'>&lt;</span><span class='ident'>GameState</span><span class='op'>&gt;&gt;</span>,
-    <span class='ident'>myself</span>: <span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span><span class='op'>+</span><span class='ident'>Send</span><span class='op'>+</span><span class='ident'>Share</span><span class='op'>&gt;&gt;</span>,
+    <span class='ident'>myself</span>: <span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span> <span class='op'>+</span> <span class='ident'>Send</span> <span class='op'>+</span> <span class='ident'>Share</span><span class='op'>&gt;&gt;</span>,
     <span class='ident'>other_players</span>: <span class='ident'>PlayerList</span>,
 
-	<span class='ident'>deck</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Card</span><span class='op'>&gt;</span>,
-	<span class='ident'>discard</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Card</span><span class='op'>&gt;</span>,
-	<span class='ident'>in_play</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Card</span><span class='op'>&gt;</span>,
-	<span class='ident'>hand</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Card</span><span class='op'>&gt;</span>,
+    <span class='ident'>deck</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Card</span><span class='op'>&gt;</span>,
+    <span class='ident'>discard</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Card</span><span class='op'>&gt;</span>,
+    <span class='ident'>in_play</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Card</span><span class='op'>&gt;</span>,
+    <span class='ident'>hand</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Card</span><span class='op'>&gt;</span>,
 
-	<span class='ident'>actions</span>: <span class='ident'>uint</span>,
-	<span class='ident'>buys</span>: <span class='ident'>uint</span>,
-	<span class='ident'>buying_power</span>: <span class='ident'>uint</span>,
+    <span class='ident'>actions</span>: <span class='ident'>uint</span>,
+    <span class='ident'>buys</span>: <span class='ident'>uint</span>,
+    <span class='ident'>buying_power</span>: <span class='ident'>uint</span>,
 }
 
 <span class='kw'>impl</span> <span class='ident'>PlayerState</span> {<span class='comment'>
@@ -1761,8 +1763,8 @@
     // gain() takes a card from the supply, putting it in the discard pile.
     </span><span class='kw'>fn</span> <span class='ident'>gain</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>c</span>: <span class='ident'>Card</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
         <span class='kw'>let</span> <span class='ident'>pile</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>count</span>(<span class='ident'>c</span>) {
-            <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>NotInSupply</span>),
-            <span class='prelude-val'>Some</span>(<span class='number'>0</span>) <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>EmptyPile</span>),
+            <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>NotInSupply</span>(<span class='ident'>c</span>)),
+            <span class='prelude-val'>Some</span>(<span class='number'>0</span>) <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>EmptyPile</span>(<span class='ident'>c</span>)),
             <span class='prelude-val'>Some</span>(<span class='ident'>pile</span>) <span class='op'>=&gt;</span> <span class='ident'>pile</span>,
         };
         <span class='self'>self</span>.<span class='ident'>with_mut_supply</span>(<span class='op'>|</span><span class='ident'>supply</span><span class='op'>|</span> <span class='ident'>supply</span>.<span class='ident'>insert</span>(<span class='ident'>c</span>.<span class='ident'>to_str</span>(), <span class='ident'>pile</span> <span class='op'>-</span> <span class='number'>1</span>));
@@ -1774,8 +1776,8 @@
     // the deck.
     </span><span class='kw'>fn</span> <span class='ident'>gain_to_deck</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>c</span>: <span class='ident'>Card</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
         <span class='kw'>let</span> <span class='ident'>pile</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>count</span>(<span class='ident'>c</span>) {
-            <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>NotInSupply</span>),
-            <span class='prelude-val'>Some</span>(<span class='number'>0</span>) <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>EmptyPile</span>),
+            <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>NotInSupply</span>(<span class='ident'>c</span>)),
+            <span class='prelude-val'>Some</span>(<span class='number'>0</span>) <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>EmptyPile</span>(<span class='ident'>c</span>)),
             <span class='prelude-val'>Some</span>(<span class='ident'>pile</span>) <span class='op'>=&gt;</span> <span class='ident'>pile</span>,
         };
         <span class='self'>self</span>.<span class='ident'>with_mut_supply</span>(<span class='op'>|</span><span class='ident'>supply</span><span class='op'>|</span> <span class='ident'>supply</span>.<span class='ident'>insert</span>(<span class='ident'>c</span>.<span class='ident'>to_str</span>(), <span class='ident'>pile</span> <span class='op'>-</span> <span class='number'>1</span>));
@@ -1787,8 +1789,8 @@
     // the hand.
     </span><span class='kw'>fn</span> <span class='ident'>gain_to_hand</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>c</span>: <span class='ident'>Card</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
         <span class='kw'>let</span> <span class='ident'>pile</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>count</span>(<span class='ident'>c</span>) {
-            <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>NotInSupply</span>),
-            <span class='prelude-val'>Some</span>(<span class='number'>0</span>) <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>EmptyPile</span>),
+            <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>NotInSupply</span>(<span class='ident'>c</span>)),
+            <span class='prelude-val'>Some</span>(<span class='number'>0</span>) <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>EmptyPile</span>(<span class='ident'>c</span>)),
             <span class='prelude-val'>Some</span>(<span class='ident'>pile</span>) <span class='op'>=&gt;</span> <span class='ident'>pile</span>,
         };
         <span class='self'>self</span>.<span class='ident'>with_mut_supply</span>(<span class='op'>|</span><span class='ident'>supply</span><span class='op'>|</span> <span class='ident'>supply</span>.<span class='ident'>insert</span>(<span class='ident'>c</span>.<span class='ident'>to_str</span>(), <span class='ident'>pile</span> <span class='op'>-</span> <span class='number'>1</span>));
@@ -1796,17 +1798,17 @@
         <span class='prelude-val'>Ok</span>(())
     }<span class='comment'>
 
-	// curse() gives the player a curse card and depletes one from the supply.
-	</span><span class='kw'>fn</span> <span class='ident'>curse</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
-		<span class='kw'>let</span> <span class='ident'>pile</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>count</span>(<span class='ident'>card</span>::<span class='ident'>CURSE</span>).<span class='ident'>unwrap</span>();
-		<span class='kw'>if</span> <span class='ident'>pile</span> <span class='op'>==</span> <span class='number'>0</span> {
-			<span class='prelude-val'>Err</span>(<span class='ident'>EmptyPile</span>)
-		} <span class='kw'>else</span> {
-			<span class='self'>self</span>.<span class='ident'>with_mut_supply</span>(<span class='op'>|</span><span class='ident'>supply</span><span class='op'>|</span> <span class='ident'>supply</span>.<span class='ident'>insert</span>(<span class='ident'>card</span>::<span class='ident'>CURSE</span>.<span class='ident'>to_str</span>(), <span class='ident'>pile</span> <span class='op'>-</span> <span class='number'>1</span>));
-			<span class='self'>self</span>.<span class='ident'>discard</span>.<span class='ident'>push</span>(<span class='ident'>card</span>::<span class='ident'>CURSE</span>);
-			<span class='prelude-val'>Ok</span>(())
-		}
-	}<span class='comment'>
+    // curse() gives the player a curse card and depletes one from the supply.
+    </span><span class='kw'>fn</span> <span class='ident'>curse</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
+        <span class='kw'>let</span> <span class='ident'>pile</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>count</span>(<span class='ident'>card</span>::<span class='ident'>CURSE</span>).<span class='ident'>unwrap</span>();
+        <span class='kw'>if</span> <span class='ident'>pile</span> <span class='op'>==</span> <span class='number'>0</span> {
+            <span class='prelude-val'>Err</span>(<span class='ident'>EmptyPile</span>(<span class='ident'>card</span>::<span class='ident'>CURSE</span>))
+        } <span class='kw'>else</span> {
+            <span class='self'>self</span>.<span class='ident'>with_mut_supply</span>(<span class='op'>|</span><span class='ident'>supply</span><span class='op'>|</span> <span class='ident'>supply</span>.<span class='ident'>insert</span>(<span class='ident'>card</span>::<span class='ident'>CURSE</span>.<span class='ident'>to_str</span>(), <span class='ident'>pile</span> <span class='op'>-</span> <span class='number'>1</span>));
+            <span class='self'>self</span>.<span class='ident'>discard</span>.<span class='ident'>push</span>(<span class='ident'>card</span>::<span class='ident'>CURSE</span>);
+            <span class='prelude-val'>Ok</span>(())
+        }
+    }<span class='comment'>
 
     // count() returns the number of copies of a card available in the supply,
     // or None if it wasn&#39;t included in this game.
@@ -1819,39 +1821,39 @@
         })
     }<span class='comment'>
 
-	// new_hand() draws up to five cards from the deck and places them in
-	// the player&#39;s hand.
-	</span><span class='kw'>fn</span> <span class='ident'>new_hand</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
-		<span class='kw'>for</span> _ <span class='kw'>in</span> <span class='ident'>range</span>(<span class='number'>0</span>, <span class='number'>5</span>) {
-			<span class='self'>self</span>.<span class='ident'>draw</span>();
-		}
-	}<span class='comment'>
+    // new_hand() draws up to five cards from the deck and places them in
+    // the player&#39;s hand.
+    </span><span class='kw'>fn</span> <span class='ident'>new_hand</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
+        <span class='kw'>for</span> _ <span class='kw'>in</span> <span class='ident'>range</span>(<span class='number'>0</span>, <span class='number'>5</span>) {
+            <span class='self'>self</span>.<span class='ident'>draw</span>();
+        }
+    }<span class='comment'>
 
-	// discard_hand() puts all of the cards the player&#39;s hand and in-play into the
-	// discard pile.
-	</span><span class='kw'>fn</span> <span class='ident'>discard_hand</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
-		<span class='kw'>loop</span> {
-			<span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>hand</span>.<span class='ident'>shift</span>() {
-				<span class='prelude-val'>Some</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> <span class='self'>self</span>.<span class='ident'>discard</span>.<span class='ident'>push</span>(<span class='ident'>c</span>),
-				<span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>break</span>,
-			}
-		}
-		<span class='kw'>loop</span> {
-			<span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>in_play</span>.<span class='ident'>shift</span>() {
-				<span class='prelude-val'>Some</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> <span class='self'>self</span>.<span class='ident'>discard</span>.<span class='ident'>push</span>(<span class='ident'>c</span>),
-				<span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>break</span>,
-			}
-		}
-	}<span class='comment'>
+    // discard_hand() puts all of the cards the player&#39;s hand and in-play into the
+    // discard pile.
+    </span><span class='kw'>fn</span> <span class='ident'>discard_hand</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
+        <span class='kw'>loop</span> {
+            <span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>hand</span>.<span class='ident'>shift</span>() {
+                <span class='prelude-val'>Some</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> <span class='self'>self</span>.<span class='ident'>discard</span>.<span class='ident'>push</span>(<span class='ident'>c</span>),
+                <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>break</span>,
+            }
+        }
+        <span class='kw'>loop</span> {
+            <span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>in_play</span>.<span class='ident'>shift</span>() {
+                <span class='prelude-val'>Some</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> <span class='self'>self</span>.<span class='ident'>discard</span>.<span class='ident'>push</span>(<span class='ident'>c</span>),
+                <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>break</span>,
+            }
+        }
+    }<span class='comment'>
 
     // discard_deck() puts all of the cards from the deck into the discard pile.
     </span><span class='kw'>fn</span> <span class='ident'>discard_deck</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
-		<span class='kw'>loop</span> {
-			<span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>deck</span>.<span class='ident'>shift</span>() {
-				<span class='prelude-val'>Some</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> <span class='self'>self</span>.<span class='ident'>discard</span>.<span class='ident'>push</span>(<span class='ident'>c</span>),
-				<span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>break</span>,
-			}
-		}
+        <span class='kw'>loop</span> {
+            <span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>deck</span>.<span class='ident'>shift</span>() {
+                <span class='prelude-val'>Some</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> <span class='self'>self</span>.<span class='ident'>discard</span>.<span class='ident'>push</span>(<span class='ident'>c</span>),
+                <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='kw'>break</span>,
+            }
+        }
     }<span class='comment'>
 
     // next_card() removes and returns the top card from the deck, shuffling
@@ -1888,7 +1890,7 @@
     }<span class='comment'>
 
     // draw() takes the top card from the deck and places it in the hand.
-	</span><span class='kw'>fn</span> <span class='ident'>draw</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Card</span><span class='op'>&gt;</span> {
+    </span><span class='kw'>fn</span> <span class='ident'>draw</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Card</span><span class='op'>&gt;</span> {
         <span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>next_card</span>() {
             <span class='prelude-val'>Some</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> {
                 <span class='self'>self</span>.<span class='ident'>hand</span>.<span class='ident'>push</span>(<span class='ident'>c</span>);
@@ -1896,12 +1898,12 @@
             }
             <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='prelude-val'>None</span>
         }
-	}<span class='comment'>
+    }<span class='comment'>
 
     // remove_from_hand() removes the given card from this player&#39;s hand,
     // returning true if it was found, or false if it wasn&#39;t.
     </span><span class='kw'>fn</span> <span class='ident'>remove_from_hand</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>c</span>: <span class='ident'>Card</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
-		<span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>hand</span>.<span class='ident'>iter</span>().<span class='ident'>enumerate</span>().<span class='ident'>find</span>(<span class='op'>|</span><span class='kw-2'>&amp;</span>(_,<span class='kw-2'>&amp;</span><span class='ident'>x</span>)<span class='op'>|</span> <span class='ident'>x</span> <span class='op'>==</span> <span class='ident'>c</span>) {
+        <span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>hand</span>.<span class='ident'>iter</span>().<span class='ident'>enumerate</span>().<span class='ident'>find</span>(<span class='op'>|</span><span class='kw-2'>&amp;</span>(_,<span class='kw-2'>&amp;</span><span class='ident'>x</span>)<span class='op'>|</span> <span class='ident'>x</span> <span class='op'>==</span> <span class='ident'>c</span>) {
             <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='boolval'>false</span>,
             <span class='prelude-val'>Some</span>((<span class='ident'>i</span>,_)) <span class='op'>=&gt;</span> {
                 <span class='self'>self</span>.<span class='ident'>hand</span>.<span class='ident'>remove</span>(<span class='ident'>i</span>);
@@ -1910,63 +1912,63 @@
         }
     }<span class='comment'>
 
-	// discard() discards a card from the player&#39;s hand, adding it to the
-	// discard pile. If it&#39;s not in the player&#39;s hand than a NotInHand
-	// error is returned.
-	</span><span class='kw'>fn</span> <span class='ident'>discard</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>c</span>: <span class='ident'>Card</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
+    // discard() discards a card from the player&#39;s hand, adding it to the
+    // discard pile. If it&#39;s not in the player&#39;s hand than a NotInHand
+    // error is returned.
+    </span><span class='kw'>fn</span> <span class='ident'>discard</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>c</span>: <span class='ident'>Card</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
         <span class='kw'>if</span> <span class='op'>!</span><span class='self'>self</span>.<span class='ident'>remove_from_hand</span>(<span class='ident'>c</span>) {
-            <span class='prelude-val'>Err</span>(<span class='ident'>NotInHand</span>)
+            <span class='prelude-val'>Err</span>(<span class='ident'>NotInHand</span>(<span class='ident'>c</span>))
         } <span class='kw'>else</span> {
             <span class='self'>self</span>.<span class='ident'>discard</span>.<span class='ident'>push</span>(<span class='ident'>c</span>);
             <span class='prelude-val'>Ok</span>(())
         }
-	}<span class='comment'>
+    }<span class='comment'>
 
-	// trash() trashes a card from the player&#39;s hand, adding it to the
-	// shared trash pile. If it&#39;s not in the player&#39;s hand than a NotInHand
-	// error is returned.
-	</span><span class='kw'>fn</span> <span class='ident'>trash</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>c</span>: <span class='ident'>Card</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
+    // trash() trashes a card from the player&#39;s hand, adding it to the
+    // shared trash pile. If it&#39;s not in the player&#39;s hand than a NotInHand
+    // error is returned.
+    </span><span class='kw'>fn</span> <span class='ident'>trash</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>c</span>: <span class='ident'>Card</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
         <span class='kw'>if</span> <span class='op'>!</span><span class='self'>self</span>.<span class='ident'>remove_from_hand</span>(<span class='ident'>c</span>) {
-            <span class='prelude-val'>Err</span>(<span class='ident'>NotInHand</span>)
+            <span class='prelude-val'>Err</span>(<span class='ident'>NotInHand</span>(<span class='ident'>c</span>))
         } <span class='kw'>else</span> {
             (<span class='op'>*</span><span class='self'>self</span>.<span class='ident'>game_ref</span>).<span class='ident'>borrow_mut</span>().<span class='ident'>trash</span>.<span class='ident'>push</span>(<span class='ident'>c</span>);
             <span class='prelude-val'>Ok</span>(())
         }
-	}<span class='comment'>
+    }<span class='comment'>
 
     // trash_from_player() is like trash(), but the trashed card must
     // currently be in play.
     </span><span class='kw'>fn</span> <span class='ident'>trash_from_play</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>c</span>: <span class='ident'>Card</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span> {
-		<span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>in_play</span>.<span class='ident'>iter</span>().<span class='ident'>enumerate</span>().<span class='ident'>find</span>(<span class='op'>|</span><span class='kw-2'>&amp;</span>(_,<span class='kw-2'>&amp;</span><span class='ident'>x</span>)<span class='op'>|</span> <span class='ident'>x</span> <span class='op'>==</span> <span class='ident'>c</span>) {
-			<span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='prelude-val'>Err</span>(<span class='ident'>NotInHand</span>),
-			<span class='prelude-val'>Some</span>((<span class='ident'>i</span>,_)) <span class='op'>=&gt;</span> {
-				<span class='kw'>let</span> <span class='ident'>card</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>in_play</span>.<span class='ident'>remove</span>(<span class='ident'>i</span>).<span class='ident'>unwrap</span>();
+        <span class='kw'>match</span> <span class='self'>self</span>.<span class='ident'>in_play</span>.<span class='ident'>iter</span>().<span class='ident'>enumerate</span>().<span class='ident'>find</span>(<span class='op'>|</span><span class='kw-2'>&amp;</span>(_,<span class='kw-2'>&amp;</span><span class='ident'>x</span>)<span class='op'>|</span> <span class='ident'>x</span> <span class='op'>==</span> <span class='ident'>c</span>) {
+            <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> <span class='prelude-val'>Err</span>(<span class='ident'>NotInHand</span>(<span class='ident'>c</span>)),
+            <span class='prelude-val'>Some</span>((<span class='ident'>i</span>,_)) <span class='op'>=&gt;</span> {
+                <span class='kw'>let</span> <span class='ident'>card</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>in_play</span>.<span class='ident'>remove</span>(<span class='ident'>i</span>).<span class='ident'>unwrap</span>();
                 (<span class='op'>*</span><span class='self'>self</span>.<span class='ident'>game_ref</span>).<span class='ident'>borrow_mut</span>().<span class='ident'>trash</span>.<span class='ident'>push</span>(<span class='ident'>card</span>);
-				<span class='prelude-val'>Ok</span>(())
-			},
-		}
+                <span class='prelude-val'>Ok</span>(())
+            },
+        }
     }<span class='comment'>
 
-	// calculate_score() counts up the total number of points and saves it
-	// in the local score variable.
-	</span><span class='kw'>fn</span> <span class='ident'>calculate_score</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>int</span> {
+    // calculate_score() counts up the total number of points and saves it
+    // in the local score variable.
+    </span><span class='kw'>fn</span> <span class='ident'>calculate_score</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>int</span> {
         <span class='self'>self</span>.<span class='ident'>deck</span>.<span class='ident'>iter</span>()
             .<span class='ident'>chain</span>(<span class='self'>self</span>.<span class='ident'>discard</span>.<span class='ident'>iter</span>())
             .<span class='ident'>chain</span>(<span class='self'>self</span>.<span class='ident'>hand</span>.<span class='ident'>iter</span>())
             .<span class='ident'>filter</span>(<span class='op'>|</span><span class='kw-2'>&amp;</span><span class='ident'>c</span><span class='op'>|</span> <span class='ident'>c</span>.<span class='ident'>is_victory</span>() <span class='op'>||</span> <span class='ident'>c</span>.<span class='ident'>is_curse</span>())
             .<span class='ident'>fold</span>(<span class='number'>0</span>, <span class='op'>|</span><span class='ident'>a</span>, <span class='kw-2'>&amp;</span><span class='ident'>b</span><span class='op'>|</span> <span class='ident'>a</span> <span class='op'>+</span> <span class='ident'>b</span>.<span class='ident'>victory_points</span>())
-	}<span class='comment'>
+    }<span class='comment'>
 
     // with_mut_supply() executes an arbitrary action on the game&#39;s supply,
     // mutably.
-	</span><span class='kw'>fn</span> <span class='ident'>with_mut_supply</span><span class='op'>&lt;</span><span class='ident'>U</span><span class='op'>&gt;</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>f</span>: <span class='op'>|</span><span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>Supply</span><span class='op'>|</span> <span class='op'>-&gt;</span> <span class='ident'>U</span>) <span class='op'>-&gt;</span> <span class='ident'>U</span> {
+    </span><span class='kw'>fn</span> <span class='ident'>with_mut_supply</span><span class='op'>&lt;</span><span class='ident'>U</span><span class='op'>&gt;</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>f</span>: <span class='op'>|</span><span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>Supply</span><span class='op'>|</span> <span class='op'>-&gt;</span> <span class='ident'>U</span>) <span class='op'>-&gt;</span> <span class='ident'>U</span> {
         <span class='ident'>f</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> (<span class='op'>*</span><span class='self'>self</span>.<span class='ident'>game_ref</span>).<span class='ident'>borrow_mut</span>().<span class='ident'>supply</span>)
-	}<span class='comment'>
+    }<span class='comment'>
 
     // with_supply() executes an arbitrary action on the game&#39;s supply.
-	</span><span class='kw'>fn</span> <span class='ident'>with_supply</span><span class='op'>&lt;</span><span class='ident'>U</span><span class='op'>&gt;</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>f</span>: <span class='op'>|</span><span class='kw-2'>&amp;</span><span class='ident'>Supply</span><span class='op'>|</span> <span class='op'>-&gt;</span> <span class='ident'>U</span>) <span class='op'>-&gt;</span> <span class='ident'>U</span> {
+    </span><span class='kw'>fn</span> <span class='ident'>with_supply</span><span class='op'>&lt;</span><span class='ident'>U</span><span class='op'>&gt;</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>f</span>: <span class='op'>|</span><span class='kw-2'>&amp;</span><span class='ident'>Supply</span><span class='op'>|</span> <span class='op'>-&gt;</span> <span class='ident'>U</span>) <span class='op'>-&gt;</span> <span class='ident'>U</span> {
         <span class='ident'>f</span>(<span class='kw-2'>&amp;</span>(<span class='op'>*</span><span class='self'>self</span>.<span class='ident'>game_ref</span>).<span class='ident'>borrow_mut</span>().<span class='ident'>supply</span>)
-	}
+    }
 }<span class='comment'>
 
 
@@ -1984,13 +1986,13 @@
 </span><span class='doccomment'>/// Input parameters for card plays.</span>
 <span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>ActionInput</span> {
     <span class='doccomment'>/// Discard a card.</span>
-	<span class='ident'>Discard</span>(<span class='ident'>Card</span>),
+    <span class='ident'>Discard</span>(<span class='ident'>Card</span>),
 
     <span class='doccomment'>/// Trash a card.</span>
-	<span class='ident'>Trash</span>(<span class='ident'>Card</span>),
+    <span class='ident'>Trash</span>(<span class='ident'>Card</span>),
 
     <span class='doccomment'>/// Gain a card.</span>
-	<span class='ident'>Gain</span>(<span class='ident'>Card</span>),
+    <span class='ident'>Gain</span>(<span class='ident'>Card</span>),
 
     <span class='doccomment'>/// Confirm an effect, i.e. discarding your deck with Chancellor.</span>
     <span class='ident'>Confirm</span>,
@@ -2005,28 +2007,28 @@
 
 <span class='kw'>impl</span> <span class='ident'>ActionInput</span> {
     <span class='attribute'>#[<span class='ident'>inline</span>]</span>
-	<span class='kw'>fn</span> <span class='ident'>is_discard</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
-		<span class='kw'>match</span> <span class='op'>*</span><span class='self'>self</span> {
-			<span class='ident'>Discard</span>(_) <span class='op'>=&gt;</span> <span class='boolval'>true</span>,
-			_ <span class='op'>=&gt;</span> <span class='boolval'>false</span>,
-		}
-	}
+    <span class='kw'>fn</span> <span class='ident'>is_discard</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+        <span class='kw'>match</span> <span class='op'>*</span><span class='self'>self</span> {
+            <span class='ident'>Discard</span>(_) <span class='op'>=&gt;</span> <span class='boolval'>true</span>,
+            _ <span class='op'>=&gt;</span> <span class='boolval'>false</span>,
+        }
+    }
 
     <span class='attribute'>#[<span class='ident'>inline</span>]</span>
-	<span class='kw'>fn</span> <span class='ident'>is_trash</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
-		<span class='kw'>match</span> <span class='op'>*</span><span class='self'>self</span> {
-			<span class='ident'>Trash</span>(_) <span class='op'>=&gt;</span> <span class='boolval'>true</span>,
-			_ <span class='op'>=&gt;</span> <span class='boolval'>false</span>,
-		}
-	}
+    <span class='kw'>fn</span> <span class='ident'>is_trash</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+        <span class='kw'>match</span> <span class='op'>*</span><span class='self'>self</span> {
+            <span class='ident'>Trash</span>(_) <span class='op'>=&gt;</span> <span class='boolval'>true</span>,
+            _ <span class='op'>=&gt;</span> <span class='boolval'>false</span>,
+        }
+    }
 
     <span class='attribute'>#[<span class='ident'>inline</span>]</span>
-	<span class='kw'>fn</span> <span class='ident'>is_gain</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
-		<span class='kw'>match</span> <span class='op'>*</span><span class='self'>self</span> {
-			<span class='ident'>Gain</span>(_) <span class='op'>=&gt;</span> <span class='boolval'>true</span>,
-			_ <span class='op'>=&gt;</span> <span class='boolval'>false</span>,
-		}
-	}
+    <span class='kw'>fn</span> <span class='ident'>is_gain</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+        <span class='kw'>match</span> <span class='op'>*</span><span class='self'>self</span> {
+            <span class='ident'>Gain</span>(_) <span class='op'>=&gt;</span> <span class='boolval'>true</span>,
+            _ <span class='op'>=&gt;</span> <span class='boolval'>false</span>,
+        }
+    }
 
     <span class='attribute'>#[<span class='ident'>inline</span>]</span>
     <span class='kw'>fn</span> <span class='ident'>is_confirm</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
@@ -2045,14 +2047,14 @@
     }
 
     <span class='attribute'>#[<span class='ident'>inline</span>]</span>
-	<span class='kw'>fn</span> <span class='ident'>get_card</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>Card</span> {
-		<span class='kw'>match</span> <span class='op'>*</span><span class='self'>self</span> {
-			<span class='ident'>Discard</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> <span class='ident'>c</span>,
-			<span class='ident'>Trash</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> <span class='ident'>c</span>,
+    <span class='kw'>fn</span> <span class='ident'>get_card</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>Card</span> {
+        <span class='kw'>match</span> <span class='op'>*</span><span class='self'>self</span> {
+            <span class='ident'>Discard</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> <span class='ident'>c</span>,
+            <span class='ident'>Trash</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> <span class='ident'>c</span>,
             <span class='ident'>Gain</span>(<span class='ident'>c</span>) <span class='op'>=&gt;</span> <span class='ident'>c</span>,
             _ <span class='op'>=&gt;</span> <span class='macro'>fail</span><span class='macro'>!</span>(<span class='string'>&quot;Can&#39;t get card of unsupported input type!&quot;</span>),
-		}
-	}
+        }
+    }
 }<span class='comment'>
 
 
@@ -2092,9 +2094,9 @@
 }
 
 <span class='kw'>impl</span> <span class='ident'>PartialEq</span> <span class='kw'>for</span> <span class='ident'>CardDef</span> {
-	<span class='kw'>fn</span> <span class='ident'>eq</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>other</span>: <span class='kw-2'>&amp;</span><span class='ident'>CardDef</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
-		<span class='self'>self</span>.<span class='ident'>name</span>.<span class='ident'>eq</span>(<span class='kw-2'>&amp;</span><span class='ident'>other</span>.<span class='ident'>name</span>)
-	}
+    <span class='kw'>fn</span> <span class='ident'>eq</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>other</span>: <span class='kw-2'>&amp;</span><span class='ident'>CardDef</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+        <span class='self'>self</span>.<span class='ident'>name</span>.<span class='ident'>eq</span>(<span class='kw-2'>&amp;</span><span class='ident'>other</span>.<span class='ident'>name</span>)
+    }
 }
 
 <span class='kw'>impl</span> <span class='ident'>fmt</span>::<span class='ident'>Show</span> <span class='kw'>for</span> <span class='ident'>CardDef</span> {
@@ -2187,23 +2189,23 @@
 <span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>Error</span> {
     <span class='ident'>NoActions</span>,
     <span class='ident'>NoBuys</span>,
-    <span class='ident'>InvalidPlay</span>,
-    <span class='ident'>NotInSupply</span>,
-	<span class='ident'>NotInHand</span>,
-    <span class='ident'>EmptyPile</span>,
-    <span class='ident'>NotEnoughMoney</span>(<span class='ident'>uint</span>),<span class='comment'> // how much more is needed to buy the card
-</span>}
+    <span class='ident'>InvalidPlay</span>(<span class='ident'>Card</span>),
+    <span class='ident'>NotInSupply</span>(<span class='ident'>Card</span>),
+    <span class='ident'>EmptyPile</span>(<span class='ident'>Card</span>),
+    <span class='ident'>NotInHand</span>(<span class='ident'>Card</span>),
+    <span class='ident'>NotEnoughMoney</span> { <span class='kw'>pub</span> <span class='ident'>need</span>: <span class='ident'>uint</span>, <span class='kw'>pub</span> <span class='ident'>have</span>: <span class='ident'>uint</span> },
+}
 
 <span class='kw'>impl</span> <span class='ident'>fmt</span>::<span class='ident'>Show</span> <span class='kw'>for</span> <span class='ident'>Error</span> {
     <span class='kw'>fn</span> <span class='ident'>fmt</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>f</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>fmt</span>::<span class='ident'>Formatter</span>) <span class='op'>-&gt;</span> <span class='ident'>fmt</span>::<span class='prelude-ty'>Result</span> {
         <span class='macro'>write</span><span class='macro'>!</span>(<span class='ident'>f</span>, <span class='string'>&quot;{}&quot;</span>, <span class='kw'>match</span> <span class='op'>*</span><span class='self'>self</span> {
-            <span class='ident'>NoActions</span>         <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;no actions&quot;</span>),
-            <span class='ident'>NoBuys</span>            <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;no buys&quot;</span>),
-            <span class='ident'>InvalidPlay</span>       <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;invalid play&quot;</span>),
-            <span class='ident'>NotInSupply</span>       <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;not in supply&quot;</span>),
-            <span class='ident'>NotInHand</span>         <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;not in hand&quot;</span>),
-            <span class='ident'>EmptyPile</span>         <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;empty pile&quot;</span>),
-            <span class='ident'>NotEnoughMoney</span>(<span class='ident'>x</span>) <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;not enough money: need {} more&quot;</span>, <span class='ident'>x</span>),
+            <span class='ident'>NoActions</span>                        <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;no actions&quot;</span>),
+            <span class='ident'>NoBuys</span>                           <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;no buys&quot;</span>),
+            <span class='ident'>InvalidPlay</span>(<span class='ident'>c</span>)                   <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;invalid play: {}&quot;</span>, <span class='ident'>c</span>),
+            <span class='ident'>NotInSupply</span>(<span class='ident'>c</span>)                   <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;not in supply: {}&quot;</span>, <span class='ident'>c</span>),
+            <span class='ident'>EmptyPile</span>(<span class='ident'>c</span>)                     <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;empty pile: {}&quot;</span>, <span class='ident'>c</span>),
+            <span class='ident'>NotInHand</span>(<span class='ident'>c</span>)                     <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;not in hand: {}&quot;</span>, <span class='ident'>c</span>),
+            <span class='ident'>NotEnoughMoney</span>{<span class='ident'>need</span>: <span class='ident'>x</span>, <span class='ident'>have</span>: <span class='ident'>y</span>} <span class='op'>=&gt;</span> <span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;not enough money: need {}, but only have {}&quot;</span>, <span class='ident'>x</span>, <span class='ident'>y</span>),
         })
     }
 }<span class='comment'>
@@ -2243,7 +2245,7 @@
 
 <span class='kw'>type</span> <span class='ident'>PlayerFunc</span> <span class='op'>=</span> <span class='kw'>fn</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>PlayerState</span>);
 
-<span class='kw'>type</span> <span class='ident'>PlayerList</span> <span class='op'>=</span> <span class='ident'>DList</span><span class='op'>&lt;</span><span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span><span class='op'>+</span><span class='ident'>Send</span><span class='op'>+</span><span class='ident'>Share</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span>;
+<span class='kw'>type</span> <span class='ident'>PlayerList</span> <span class='op'>=</span> <span class='ident'>DList</span><span class='op'>&lt;</span><span class='ident'>Arc</span><span class='op'>&lt;</span><span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>Player</span> <span class='op'>+</span> <span class='ident'>Send</span> <span class='op'>+</span> <span class='ident'>Share</span><span class='op'>&gt;&gt;</span><span class='op'>&gt;</span>;
 
 <span class='kw'>type</span> <span class='ident'>Supply</span> <span class='op'>=</span> <span class='ident'>HashMap</span><span class='op'>&lt;</span><span class='ident'>String</span>, <span class='ident'>uint</span><span class='op'>&gt;</span>;
 

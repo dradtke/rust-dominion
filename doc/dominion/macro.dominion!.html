@@ -38,12 +38,12 @@
     </nav>
 
     <section id='main' class="content macro">
-<h1 class='fqn'><a href='index.html'>dominion</a>::<a class='macro' href=''>dominion!</a><a class='source' id='src-3141' href='../src/dominion/dominion/mod.rs.html#76-82'>[src]</a></h1>
+<h1 class='fqn'><a href='index.html'>dominion</a>::<a class='macro' href=''>dominion!</a><a class='source' id='src-3141' href='../src/dominion/dominion/mod.rs.html#77-83'>[src]</a></h1>
 <pre class='rust macro'>
 <span class='macro'>macro_rules</span><span class='macro'>!</span> <span class='ident'>dominion</span>(
     ($(<span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>player</span>:<span class='ident'>ident</span>),<span class='op'>+</span>) <span class='op'>=&gt;</span> ({
         <span class='ident'>dominion</span>::<span class='ident'>play</span>(<span class='macro'>vec</span><span class='macro'>!</span>($(
-            <span class='kw'>box</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>player</span> <span class='kw'>as</span> <span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>dominion</span>::<span class='ident'>Player</span><span class='op'>+</span><span class='ident'>Send</span><span class='op'>+</span><span class='ident'>Share</span><span class='op'>&gt;</span>,
+            <span class='kw'>box</span> <span class='macro-nonterminal'>$</span><span class='macro-nonterminal'>player</span> <span class='kw'>as</span> <span class='ident'>Box</span><span class='op'>&lt;</span><span class='ident'>dominion</span>::<span class='ident'>Player</span> <span class='op'>+</span> <span class='ident'>Send</span> <span class='op'>+</span> <span class='ident'>Share</span><span class='op'>&gt;</span>,
         )<span class='op'>+</span>));
     })
 )
