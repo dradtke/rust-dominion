@@ -1,0 +1,8 @@
+[package]
+name = "dominion"
+version = "0.1.0"
+authors = [ "damienradtke@gmail.com" ]
+
+[[lib]]
+name = "dominion"
+path = "dominion/mod.rs"
