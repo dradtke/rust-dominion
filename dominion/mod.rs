@@ -98,10 +98,16 @@ local_data_key!(active_card: Card)
 ///
 /// The only required methods are `name()` and `take_turn()`,
 /// but other methods may be overridden in order to gain more control over
-/// how your player reacts.
+/// your player.
 pub trait Player {
     fn name(&self) -> &'static str;
     fn take_turn(&self);
+
+    // init() is called before the first turn is played, and it passes in
+    // a list of the cards that will be used this game. It can be used to
+    // let a player decide what strategy they wish to use.
+    fn init(&mut self, _: &Vec<Card>) {
+    }
 
     // library_should_discard() is called when an Action card is encountered as part of
     // a Library draw. It should return true if that card should be discarded,
@@ -158,7 +164,8 @@ pub trait Player {
     // if it isn't a Copper.
     fn thief_trash_and_keep(&self, options: &[Card]) -> (Card, bool) {
         let mut money = Vec::from_slice(options);
-        money.sort_by(|m1, m2| m2.treasure_value().cmp(&m1.treasure_value())); // TODO: verify the ordering, highest should be first
+        // TODO: verify the ordering, highest should be first
+        money.sort_by(|m1, m2| m2.treasure_value().cmp(&m1.treasure_value()));
         let highest = *money.get(0);
         (highest, highest != card::COPPER)
     }
@@ -317,23 +324,25 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
     supply.insert(card::PROVINCE.to_str(), 12);
     supply.insert(card::CURSE.to_str(),    30);
     // now for the variations!
-    supply.insert(card::SMITHY.to_str(), 10);
-    supply.insert(card::WITCH.to_str(),  10);
+
+    // TODO: determine this randomly, or from program input
+    let kingdom = vec!(card::WITCH, card::SMITHY);
+    for card in kingdom.iter() {
+        supply.insert(card.to_str(), 10);
+    }
 
     let (reporter, receiver) = comm::channel();
-
-    let player_arcs = player_list
-        .move_iter()
-        .map(|player| Arc::new(player))
-        .collect::<Vec<Arc<Box<Player + Send + Share>>>>();
-
+    let mut player_arcs = Vec::with_capacity(player_list.len());
     let mut scores = HashMap::<String,uint>::new();
-    for player in player_arcs.iter() {
+
+    for mut player in player_list.move_iter() {
+        player.init(&kingdom);
         scores.insert(player.name().to_str(), 0);
+        player_arcs.push(Arc::new(player));
     }
 
     spawn(proc() {
-        for _ in range(0, n) {
+        for _ in range(0u, n) {
             let reporter = reporter.clone();
             let trash = trash.clone();
             let supply = supply.clone();
@@ -698,7 +707,7 @@ impl PlayerState {
     // new_hand() draws up to five cards from the deck and places them in
     // the player's hand.
     fn new_hand(&mut self) {
-        for _ in range(0, 5) {
+        for _ in range(0u, 5u) {
             self.draw();
         }
     }

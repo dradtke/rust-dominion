@@ -30,7 +30,7 @@ pub static CELLAR: Card = &'static CardDef { name: "Cellar", cost: 2, types: &'s
 fn do_cellar(inputs: &[ActionInput]) {
     with_active_player(|player| {
         player.actions += 1;
-        let mut discarded = 0;
+        let mut discarded = 0u;
         for card in inputs.iter().filter(|i| i.is_discard()).map(|i| i.get_card()) {
             player.discard(card).unwrap_or_else(|_| fail!("Cellar tried to discard {}, but you don't have it!", card.name));
             discarded += 1;
@@ -57,7 +57,7 @@ fn do_chapel(inputs: &[ActionInput]) {
 pub static MOAT: Card = &'static CardDef { name: "Moat", cost: 2, types: &[Action(do_moat)] };
 fn do_moat(_: &[ActionInput]) {
     with_active_player(|player| {
-        for _ in range(0, 2) {
+        for _ in range(0u, 2u) {
             player.draw();
         }
     });
@@ -208,7 +208,7 @@ fn do_remodel(inputs: &[ActionInput]) {
 pub static SMITHY: Card = &'static CardDef { name: "Smithy", cost: 4, types: &[Action(do_smithy)] };
 fn do_smithy(_: &[ActionInput]) {
     with_active_player(|player| {
-        for _ in range(0, 3) {
+        for _ in range(0u, 3u) {
             player.draw();
         }
     });
@@ -296,7 +296,7 @@ fn do_throne_room(inputs: &[ActionInput]) {
 pub static COUNCIL_ROOM: Card = &'static CardDef { name: "Council Room", cost: 5, types: &[Action(do_council_room)] };
 fn do_council_room(_: &[ActionInput]) {
     with_active_player(|player| {
-        for _ in range(0, 4) {
+        for _ in range(0u, 4u) {
             player.draw();
         }
         player.buys += 1;
@@ -322,7 +322,7 @@ fn do_festival(_: &[ActionInput]) {
 pub static LABORATORY: Card = &'static CardDef { name: "Laboratory", cost: 5, types: &[Action(do_laboratory)] };
 fn do_laboratory(_: &[ActionInput]) {
     with_active_player(|player| {
-        for _ in range(0, 2) {
+        for _ in range(0u, 2u) {
             player.draw();
         }
         player.actions += 1;
@@ -385,7 +385,7 @@ fn do_mine(inputs: &[ActionInput]) {
 pub static WITCH: Card = &'static CardDef { name: "Witch", cost: 5, types: &[Action(do_witch)] };
 fn do_witch(_: &[ActionInput]) {
     with_active_player(|player| {
-        for _ in range(0, 2) {
+        for _ in range(0u, 2u) {
             player.draw();
         }
     });
