@@ -1,6 +1,7 @@
 
 //! Card definitions.
 
+use std::collections::HashSet;
 use std::vec::Vec;
 use super::{
     with_active_player, with_other_players, attack,
@@ -414,6 +415,71 @@ fn do_adventurer(_: &[ActionInput]) {
             }
         }
     });
+}
+
+
+/* ---------------------------- Dominion Set ---------------------------- */
+
+pub fn dominion_set() -> HashSet<&'static str> {
+    let mut cards = HashSet::with_capacity(25);
+    cards.insert(CELLAR.name);
+    cards.insert(CHAPEL.name);
+    cards.insert(MOAT.name);
+    cards.insert(CHANCELLOR.name);
+    cards.insert(VILLAGE.name);
+    cards.insert(WOODCUTTER.name);
+    cards.insert(WORKSHOP.name);
+    cards.insert(BUREAUCRAT.name);
+    cards.insert(FEAST.name);
+    cards.insert(GARDENS.name);
+    cards.insert(MILITIA.name);
+    cards.insert(MONEYLENDER.name);
+    cards.insert(REMODEL.name);
+    cards.insert(SMITHY.name);
+    cards.insert(SPY.name);
+    cards.insert(THIEF.name);
+    cards.insert(THRONE_ROOM.name);
+    cards.insert(COUNCIL_ROOM.name);
+    cards.insert(FESTIVAL.name);
+    cards.insert(LABORATORY.name);
+    cards.insert(LIBRARY.name);
+    cards.insert(MARKET.name);
+    cards.insert(MINE.name);
+    cards.insert(WITCH.name);
+    cards.insert(ADVENTURER.name);
+    cards
+}
+
+// This is a hack needed until Rust can properly hash function pointers.
+pub fn for_name(name: &'static str) -> Card {
+    match name {
+        "Cellar" => CELLAR,
+        "Chapel" => CHAPEL,
+        "Moat" => MOAT,
+        "Chancellor" => CHANCELLOR,
+        "Village" => VILLAGE,
+        "Woodcutter" => WOODCUTTER,
+        "Workshop" => WORKSHOP,
+        "Bureaucrat" => BUREAUCRAT,
+        "Feast" => FEAST,
+        "Gardens" => GARDENS,
+        "Militia" => MILITIA,
+        "Moneylender" => MONEYLENDER,
+        "Remodel" => REMODEL,
+        "Smithy" => SMITHY,
+        "Spy" => SPY,
+        "Thief" => THIEF,
+        "Throne Room" => THRONE_ROOM,
+        "Council Room" => COUNCIL_ROOM,
+        "Festival" => FESTIVAL,
+        "Laboratory" => LABORATORY,
+        "Library" => LIBRARY,
+        "Market" => MARKET,
+        "Mine" => MINE,
+        "Witch" => WITCH,
+        "Adventurer" => ADVENTURER,
+        _ => fail!("Unrecognized card name: {}", name),
+    }
 }
 
 

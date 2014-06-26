@@ -86,9 +86,22 @@ macro_rules! dominion(
     })
 )
 
-local_data_key!(state_map: RefCell<HashMap<&'static str, PlayerState>>)
-local_data_key!(active_player: &'static str)
-local_data_key!(active_card: Card)
+#[macro_export]
+macro_rules! kingdom(
+    ($($card:ident),+) => ({
+        dominion::set_kingdom(vec!($(
+            dominion::card::$card,
+        )+));
+    })
+)
+
+// Game setup keys.
+local_data_key!(KINGDOM: Vec<Card>)
+
+// Game-specific keys.
+local_data_key!(STATE_MAP: RefCell<HashMap<&'static str, PlayerState>>)
+local_data_key!(ACTIVE_PLAYER: &'static str)
+local_data_key!(ACTIVE_CARD: Card)
 
 
 /* ------------------------ Player Trait ------------------------ */
@@ -311,8 +324,6 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
         1000
     };
 
-    writeln!(term, "\nPlaying {} games...", n);
-
     let trash = Vec::new();
 
     let mut supply: Supply = HashMap::new();
@@ -325,11 +336,40 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
     supply.insert(card::CURSE.to_str(),    30);
     // now for the variations!
 
-    // TODO: determine this randomly, or from program input
-    let kingdom = vec!(card::WITCH, card::SMITHY);
-    for card in kingdom.iter() {
+    let mut kingdom = match KINGDOM.get() {
+        None => Vec::with_capacity(10),
+        Some(x) => {
+            let mut k = x.clone();
+            k.reserve(10);
+            k
+        }
+    };
+
+    if kingdom.len() < 10 {
+        let mut rng = task_rng();
+        let mut all = card::dominion_set();
+        for c in kingdom.iter() {
+            all.remove(&c.name);
+        }
+        while kingdom.len() < 10 {
+            let card = *rng.choose(all.iter().map(|x| *x).collect::<Vec<&'static str>>().as_slice()).unwrap();
+            kingdom.push(card::for_name(card));
+            all.remove(&card);
+        }
+    }
+
+    write!(term, "\nPlaying {} games with ", n);
+    for (i, card) in kingdom.iter().enumerate() {
+        write!(term, "{}", card.name);
+        if i < 9 {
+            write!(term, ", ");
+        }
+        if i == 8 {
+            write!(term, "and ");
+        }
         supply.insert(card.to_str(), 10);
     }
+    writeln!(term, ".");
 
     let (reporter, receiver) = comm::channel();
     let mut player_arcs = Vec::with_capacity(player_list.len());
@@ -386,7 +426,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
                         (*(*players).borrow_mut()).push_back(p);
                     }
 
-                    state_map.replace(Some(RefCell::new(player_state_map)));
+                    STATE_MAP.replace(Some(RefCell::new(player_state_map)));
 
                     play_game(players)
                 }) {
@@ -478,11 +518,16 @@ pub fn play_card_and(c: Card, input: &[ActionInput]) -> Result {
     });
     if action.is_some() {
         let f = action.unwrap();
-        active_card.replace(Some(c));
+        ACTIVE_CARD.replace(Some(c));
         f(input);
-        active_card.replace(None);
+        ACTIVE_CARD.replace(None);
     }
     result
+}
+
+/// Sets the kingdom to be used.
+pub fn set_kingdom(cards: Vec<Card>) {
+    KINGDOM.replace(Some(cards));
 }
 
 
@@ -493,7 +538,7 @@ fn play_game(players: Rc<RefCell<PlayerList>>) -> GameResult {
     let empty_limit = get_empty_limit((*players).borrow().len());
     loop {
         let player = (*players).borrow_mut().pop_front().unwrap();
-        active_player.replace(Some(player.name()));
+        ACTIVE_PLAYER.replace(Some(player.name()));
 
         take_turn(&(*player));
 
@@ -585,11 +630,11 @@ fn is_game_finished(game: &GameState, empty_limit: uint) -> bool {
 }
 
 fn with_player<T>(player: &'static str, f: |&mut PlayerState| -> T) -> T {
-    f((*state_map.get().unwrap().borrow_mut()).get_mut(&player))
+    f((*STATE_MAP.get().unwrap().borrow_mut()).get_mut(&player))
 }
 
 fn with_active_player<T>(f: |&mut PlayerState| -> T) -> T {
-    match active_player.get() {
+    match ACTIVE_PLAYER.get() {
         None => fail!("No active player!"),
         Some(player) => with_player(*player, f),
     }
@@ -597,7 +642,7 @@ fn with_active_player<T>(f: |&mut PlayerState| -> T) -> T {
 
 fn with_other_players(f: |&mut PlayerState|) {
     let others = with_active_player(|player| player.other_players.clone());
-    let states_ref = state_map.get().unwrap();
+    let states_ref = STATE_MAP.get().unwrap();
     let mut states = states_ref.borrow_mut();
     for other in others.iter() {
         f(states.get_mut(&other.name()));
@@ -606,11 +651,11 @@ fn with_other_players(f: |&mut PlayerState|) {
 
 fn attack(f: |&mut PlayerState|) {
     let others = with_active_player(|player| player.other_players.clone());
-    let states_ref = state_map.get().unwrap();
+    let states_ref = STATE_MAP.get().unwrap();
     let mut states = states_ref.borrow_mut();
     for other in others.iter() {
         let state = states.get_mut(&other.name());
-        let attacker = *active_card.get().unwrap();
+        let attacker = *ACTIVE_CARD.get().unwrap();
         if !state.hand_contains(card::MOAT) || !(**other).moat_should_block(attacker) {
             f(state);
         }

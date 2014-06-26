@@ -16,5 +16,6 @@ impl dominion::Player for Damien {
 }
 
 fn main() {
+    kingdom!(SMITHY, WITCH);
     dominion!(Georgia, Damien);
 }
