@@ -400,7 +400,7 @@ fn do_witch(_: &[ActionInput]) {
 pub static ADVENTURER: Card = &'static CardDef { name: "Adventurer", cost: 6, types: &[Action(do_adventurer)] };
 fn do_adventurer(_: &[ActionInput]) {
     with_active_player(|player| {
-        let mut count = 0;
+        let mut count = 0u;
         while count < 2 {
             match player.next_card() {
                 Some(c) => {

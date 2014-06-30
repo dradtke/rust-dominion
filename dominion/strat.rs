@@ -18,18 +18,18 @@ use super::{buy, count, hand_contains, has, get_buying_power, play_all_money, pl
 pub fn big_money() {
     play_all_money();
     match get_buying_power() {
-        0..2 => Ok(()),
-        3..4 => buy(card::SILVER),
+        0..2 => (),
+        3..4 => { buy(card::SILVER); },
         5    => {
             if count(card::PROVINCE).unwrap() <= 5 {
-                buy(card::DUCHY)
+                buy(card::DUCHY);
             } else {
-                buy(card::SILVER)
+                buy(card::SILVER);
             }
         }
-        6..7 => buy(card::GOLD),
-        _    => buy(card::PROVINCE),
-    };
+        6..7 => { buy(card::GOLD); },
+        _    => { buy(card::PROVINCE); },
+    }
 }
 
 /// Big Money Smithy.
@@ -42,25 +42,25 @@ pub fn big_money_smithy() {
     }
     play_all_money();
     match get_buying_power() {
-        0..2 => Ok(()),
-        3 => buy(card::SILVER),
+        0..2 => (),
+        3 => { buy(card::SILVER); },
         4 => {
             if !has(card::SMITHY) {
-                buy(card::SMITHY)
+                buy(card::SMITHY);
             } else {
-                buy(card::SILVER)
+                buy(card::SILVER);
             }
         },
         5 => {
             if count(card::PROVINCE).unwrap() <= 5 {
-                buy(card::DUCHY)
+                buy(card::DUCHY);
             } else {
-                buy(card::SILVER)
+                buy(card::SILVER);
             }
         }
-        6..7 => buy(card::GOLD),
-        _    => buy(card::PROVINCE),
-    };
+        6..7 => { buy(card::GOLD); },
+        _    => { buy(card::PROVINCE); },
+    }
 }
 
 /// Big Money Witch.
@@ -73,19 +73,19 @@ pub fn big_money_witch() {
     }
     play_all_money();
     match get_buying_power() {
-        0..2 => Ok(()),
-        3..4 => buy(card::SILVER),
+        0..2 => (),
+        3..4 => { buy(card::SILVER); },
         5 => {
             if !has(card::WITCH) {
-                buy(card::WITCH)
+                buy(card::WITCH);
             }
             else if count(card::PROVINCE).unwrap() <= 5 {
-                buy(card::DUCHY)
+                buy(card::DUCHY);
             } else {
-                buy(card::SILVER)
+                buy(card::SILVER);
             }
         }
-        6..7 => buy(card::GOLD),
-        _    => buy(card::PROVINCE),
-    };
+        6..7 => { buy(card::GOLD); },
+        _    => { buy(card::PROVINCE); },
+    }
 }

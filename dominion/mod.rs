@@ -69,6 +69,8 @@ use std::string::String;
 use std::vec::Vec;
 use sync::Arc;
 use std::rand::{task_rng,Rng};
+use term::{Terminal,WriterWrapper,stdout};
+use term::color;
 
 pub mod card;
 pub mod strat;
@@ -306,7 +308,7 @@ pub fn number_of(c: Card) -> uint {
 
 /// The entry point for playing a game, usually used via the shorthand `play!` macro.
 pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
-    let mut term = term::stdout().unwrap();
+    let mut term = stdout().unwrap();
 
     let args = os::args().iter().map(|x| x.to_string()).collect::<Vec<String>>();
     let opts = [
@@ -319,44 +321,17 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
     let output_name = matches.opt_str("o");
 
     let n: uint = if !matches.free.is_empty() {
-        from_str(matches.free.get(0).as_slice()).unwrap()
-    } else {
-        1000
-    };
+            from_str(matches.free.get(0).as_slice()).unwrap()
+        } else {
+            1000
+        };
 
     let trash = Vec::new();
-
-    let mut supply: Supply = HashMap::new();
-    supply.insert(card::COPPER.to_str(),   30);
-    supply.insert(card::SILVER.to_str(),   30);
-    supply.insert(card::GOLD.to_str(),     30);
-    supply.insert(card::ESTATE.to_str(),   12);
-    supply.insert(card::DUCHY.to_str(),    12);
-    supply.insert(card::PROVINCE.to_str(), 12);
-    supply.insert(card::CURSE.to_str(),    30);
-    // now for the variations!
-
-    let mut kingdom = match KINGDOM.get() {
-        None => Vec::with_capacity(10),
-        Some(x) => {
-            let mut k = x.clone();
-            k.reserve(10);
-            k
-        }
-    };
-
-    if kingdom.len() < 10 {
-        let mut rng = task_rng();
-        let mut all = card::dominion_set();
-        for c in kingdom.iter() {
-            all.remove(&c.name);
-        }
-        while kingdom.len() < 10 {
-            let card = *rng.choose(all.iter().map(|x| *x).collect::<Vec<&'static str>>().as_slice()).unwrap();
-            kingdom.push(card::for_name(card));
-            all.remove(&card);
-        }
-    }
+    let mut supply = build_supply();
+    let kingdom = build_kingdom();
+    let (reporter, receiver) = comm::channel();
+    let mut player_arcs = Vec::with_capacity(player_list.len());
+    let mut scores = HashMap::<String,uint>::new();
 
     write!(term, "\nPlaying {} games with ", n);
     for (i, card) in kingdom.iter().enumerate() {
@@ -370,10 +345,6 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
         supply.insert(card.to_str(), 10);
     }
     writeln!(term, ".");
-
-    let (reporter, receiver) = comm::channel();
-    let mut player_arcs = Vec::with_capacity(player_list.len());
-    let mut scores = HashMap::<String,uint>::new();
 
     for mut player in player_list.move_iter() {
         player.init(&kingdom);
@@ -441,12 +412,11 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
 
     let mut ties = 0;
     report(&mut term, 0, n, &scores, ties);
-
     let mut output_file = output_name.clone().map(|x| File::create(&Path::new(x)).unwrap());
 
     for i in range(0, n) {
         match receiver.recv() {
-            Err(e) => fail!("Dominion task failed: {}", e),
+            Err(_) => fail!("Dominion task failed. =("), // TODO: get the error message somehow
             Ok(results) => {
                 if results.tie {
                     ties += 1;
@@ -533,6 +503,43 @@ pub fn set_kingdom(cards: Vec<Card>) {
 
 /* ------------------------ Private Methods ------------------------ */
 
+fn build_kingdom() -> Vec<Card> {
+    let mut kingdom = match KINGDOM.get() {
+        None => Vec::with_capacity(10),
+        Some(x) => {
+            let mut k = x.clone();
+            k.reserve(10);
+            k
+        }
+    };
+
+    if kingdom.len() < 10 {
+        let mut rng = task_rng();
+        let mut all = card::dominion_set();
+        for c in kingdom.iter() {
+            all.remove(&c.name);
+        }
+        while kingdom.len() < 10 {
+            let card = *rng.choose(all.iter().map(|x| *x).collect::<Vec<&'static str>>().as_slice()).unwrap();
+            kingdom.push(card::for_name(card));
+            all.remove(&card);
+        }
+    }
+
+    kingdom
+}
+
+fn build_supply() -> Supply {
+    let mut supply: Supply = HashMap::new();
+    supply.insert(card::COPPER.to_str(),   30);
+    supply.insert(card::SILVER.to_str(),   30);
+    supply.insert(card::GOLD.to_str(),     30);
+    supply.insert(card::ESTATE.to_str(),   12);
+    supply.insert(card::DUCHY.to_str(),    12);
+    supply.insert(card::PROVINCE.to_str(), 12);
+    supply.insert(card::CURSE.to_str(),    30);
+    supply
+}
 
 fn play_game(players: Rc<RefCell<PlayerList>>) -> GameResult {
     let empty_limit = get_empty_limit((*players).borrow().len());
@@ -579,7 +586,7 @@ fn play_game(players: Rc<RefCell<PlayerList>>) -> GameResult {
     }
 }
 
-fn report(term: &mut Box<term::Terminal<Box<Writer+Send>>+Send>, games: uint, total_games: uint, scores: &HashMap<String, uint>, ties: uint) {
+fn report(term: &mut Box<Terminal<WriterWrapper> + Send>, games: uint, total_games: uint, scores: &HashMap<String, uint>, ties: uint) {
     let winning = match scores.iter().max_by(|&(_, v)| v) {
         Some((_, v)) => *v,
         _ => 0,
@@ -590,7 +597,7 @@ fn report(term: &mut Box<term::Terminal<Box<Writer+Send>>+Send>, games: uint, to
             term.write_str(" \t");
         }
         write!(term, "{}: ", *key);
-        term.fg(if *value == winning { term::color::BRIGHT_GREEN } else { term::color::BRIGHT_RED });
+        term.fg(if *value == winning { color::BRIGHT_GREEN } else { color::BRIGHT_RED });
         write!(term, "{}", *value);
         term.reset();
     }
