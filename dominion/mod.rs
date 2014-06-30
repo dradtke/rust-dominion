@@ -73,7 +73,7 @@ use sync::Arc;
 use term::{Terminal,WriterWrapper,stdout};
 use term::color;
 
-pub mod card;
+pub mod cards;
 pub mod strat;
 
 /// Play Dominion.
@@ -89,11 +89,17 @@ macro_rules! dominion(
     })
 )
 
+/// Set a Kingdom to play with.
+///
+/// By default, games will choose a random set of cards to use as the
+/// Kingdom. Use this macro to include specific cards in the game. If fewer
+/// than 10 cards are supplied, then the rest will be randomly chosen
+/// from what's left. Anything over 10 will be ignored.
 #[macro_export]
 macro_rules! kingdom(
-    ($($card:ident),+) => ({
+    ($($cards:ident),+) => ({
         dominion::set_kingdom(vec!($(
-            dominion::card::$card,
+            dominion::cards::$card,
         )+));
     })
 )
@@ -183,7 +189,7 @@ pub trait Player {
         // TODO: verify the ordering, highest should be first
         money.sort_by(|m1, m2| m2.treasure_value().cmp(&m1.treasure_value()));
         let highest = *money.get(0);
-        (highest, highest != card::COPPER)
+        (highest, highest != cards::COPPER)
     }
 }
 
@@ -368,8 +374,8 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
                     rng.shuffle(player_arcs.as_mut_slice());
 
                     let mut deck = Vec::new();
-                    deck.push_all_move(card::COPPER.create_copies(7));
-                    deck.push_all_move(card::ESTATE.create_copies(3));
+                    deck.push_all_move(cards::COPPER.create_copies(7));
+                    deck.push_all_move(cards::ESTATE.create_copies(3));
                     rng.shuffle(deck.as_mut_slice());
 
                     let players = Rc::new(RefCell::new(DList::<Arc<Box<Player + Send + Share>>>::new()));
@@ -516,13 +522,13 @@ fn build_kingdom() -> Vec<Card> {
 
     if kingdom.len() < 10 {
         let mut rng = task_rng();
-        let mut all = card::dominion_set();
+        let mut all = cards::dominion::set();
         for c in kingdom.iter() {
             all.remove(&c.name);
         }
         while kingdom.len() < 10 {
             let card = *rng.choose(all.iter().map(|x| *x).collect::<Vec<&'static str>>().as_slice()).unwrap();
-            kingdom.push(card::for_name(card));
+            kingdom.push(cards::for_name(card));
             all.remove(&card);
         }
     }
@@ -532,13 +538,13 @@ fn build_kingdom() -> Vec<Card> {
 
 fn build_supply() -> Supply {
     let mut supply: Supply = HashMap::new();
-    supply.insert(card::COPPER.to_str(),   30);
-    supply.insert(card::SILVER.to_str(),   30);
-    supply.insert(card::GOLD.to_str(),     30);
-    supply.insert(card::ESTATE.to_str(),   12);
-    supply.insert(card::DUCHY.to_str(),    12);
-    supply.insert(card::PROVINCE.to_str(), 12);
-    supply.insert(card::CURSE.to_str(),    30);
+    supply.insert(cards::COPPER.to_str(),   30);
+    supply.insert(cards::SILVER.to_str(),   30);
+    supply.insert(cards::GOLD.to_str(),     30);
+    supply.insert(cards::ESTATE.to_str(),   12);
+    supply.insert(cards::DUCHY.to_str(),    12);
+    supply.insert(cards::PROVINCE.to_str(), 12);
+    supply.insert(cards::CURSE.to_str(),    30);
     supply
 }
 
@@ -629,7 +635,7 @@ fn get_empty_limit(n: uint) -> uint {
 }
 
 fn is_game_finished(game: &GameState, empty_limit: uint) -> bool {
-    if *game.supply.find(&card::PROVINCE.to_str()).unwrap() == 0 {
+    if *game.supply.find(&cards::PROVINCE.to_str()).unwrap() == 0 {
         true
     } else {
         let num_empty = game.supply.iter().filter(|&(_, &x)| x == 0).fold(0, |a, (_, &b)| a + b);
@@ -664,7 +670,7 @@ fn attack(f: |&mut PlayerState|) {
     for other in others.iter() {
         let state = states.get_mut(&other.name());
         let attacker = *ACTIVE_CARD.get().unwrap();
-        if !state.hand_contains(card::MOAT) || !(**other).moat_should_block(attacker) {
+        if !state.hand_contains(cards::dominion::MOAT) || !(**other).moat_should_block(attacker) {
             f(state);
         }
     }
@@ -736,12 +742,12 @@ impl PlayerState {
 
     // curse() gives the player a curse card and depletes one from the supply.
     fn curse(&mut self) -> Result {
-        let pile = self.count(card::CURSE).unwrap();
+        let pile = self.count(cards::CURSE).unwrap();
         if pile == 0 {
-            Err(EmptyPile(card::CURSE))
+            Err(EmptyPile(cards::CURSE))
         } else {
-            self.with_mut_supply(|supply| supply.insert(card::CURSE.to_str(), pile - 1));
-            self.discard.push(card::CURSE);
+            self.with_mut_supply(|supply| supply.insert(cards::CURSE.to_str(), pile - 1));
+            self.discard.push(cards::CURSE);
             Ok(())
         }
     }
