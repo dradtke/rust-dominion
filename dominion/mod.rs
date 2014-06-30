@@ -66,10 +66,10 @@ use std::os;
 use std::owned::Box;
 use std::rc::Rc;
 use std::task;
+use std::rand::{task_rng,Rng};
 use std::string::String;
 use std::vec::Vec;
 use sync::Arc;
-use std::rand::{task_rng,Rng};
 use term::{Terminal,WriterWrapper,stdout};
 use term::color;
 
