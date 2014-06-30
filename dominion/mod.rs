@@ -51,6 +51,7 @@
 #![feature(macro_rules)]
 #![allow(unused_must_use)]
 
+extern crate debug;
 extern crate getopts;
 extern crate sync;
 extern crate term;
@@ -416,7 +417,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
 
     for i in range(0, n) {
         match receiver.recv() {
-            Err(_) => fail!("Dominion task failed. =("), // TODO: get the error message somehow
+            Err(e) => fail!("Dominion task failed: {:?}", e),
             Ok(results) => {
                 if results.tie {
                     ties += 1;
