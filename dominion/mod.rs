@@ -83,9 +83,9 @@ pub mod strat;
 #[macro_export]
 macro_rules! dominion(
     ($($player:ident),+) => ({
-        dominion::play(vec!($(
+        dominion::play(vec![$(
             box $player as Box<dominion::Player + Send + Share>,
-        )+));
+        )+]);
     })
 )
 
@@ -97,10 +97,10 @@ macro_rules! dominion(
 /// from what's left. Anything over 10 will be ignored.
 #[macro_export]
 macro_rules! kingdom(
-    ($($cards:ident),+) => ({
-        dominion::set_kingdom(vec!($(
-            dominion::cards::$card,
-        )+));
+    ($($card:expr),+) => ({
+        dominion::set_kingdom(vec![$(
+            $card,
+        )+]);
     })
 )
 

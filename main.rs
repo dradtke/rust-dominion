@@ -1,7 +1,10 @@
 #![feature(phase)]
 
-#[phase(plugin, link)] extern crate dominion;
+#[phase(plugin, link)]
+extern crate dominion;
+
 use dominion::strat;
+use dominion::cards::dominion::{SMITHY, WITCH};
 
 struct Georgia;
 impl dominion::Player for Georgia {
