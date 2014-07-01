@@ -57,13 +57,18 @@ mod test {
     extern crate sync;
 
     use super::{COPPER, SILVER, GOLD, ESTATE, DUCHY, PROVINCE, CURSE};
-    use super::super::{Card, GameState, InvalidPlay, NoActions, Player, PlayerState, Result, Supply};
+    use super::super::{Card, GameState, InvalidPlay, NoActions, Player, PlayerList, PlayerState, Result, Supply};
 
-    use std::collections::{DList, HashMap};
+    use std::collections::{Deque, HashMap};
     use std::cell::RefCell;
     use std::rc::Rc;
     use std::vec::Vec;
     use sync::Arc;
+
+    pub struct Ai {
+        pub hand: Vec<Card>,
+        pub deck: Vec<Card>,
+    }
 
     struct Alice;
     impl Player for Alice {
@@ -71,7 +76,25 @@ mod test {
         fn take_turn(&self) {}
     }
 
-    pub fn setup(hand: Vec<Card>, deck: Vec<Card>) {
+    struct Bob;
+    impl Player for Bob {
+        fn name(&self) -> &'static str { "Bob" }
+        fn take_turn(&self) {}
+    }
+
+    struct Charlie;
+    impl Player for Charlie {
+        fn name(&self) -> &'static str { "Charlie" }
+        fn take_turn(&self) {}
+    }
+
+    struct Delta;
+    impl Player for Delta {
+        fn name(&self) -> &'static str { "Delta" }
+        fn take_turn(&self) {}
+    }
+
+    pub fn setup(ais: Vec<Ai>) {
         let trash = Vec::new();
 
         let mut supply: Supply = HashMap::new();
@@ -84,25 +107,41 @@ mod test {
         supply.insert(CURSE.to_str(),    30);
 
         let game = GameState{supply: supply, trash: trash};
+        let game_ref = Rc::new(RefCell::new(game));
 
-        // TODO: create a second player Bob for testing attack cards
-        let alice = box Alice as Box<Player + Send + Share>;
-        ::ACTIVE_PLAYER.replace(Some(alice.name()));
+        let ai_arcs = ais.iter().enumerate().map(|(index, _)| match index {
+            0 => Arc::new(box Alice as Box<Player + Send + Share>),
+            1 => Arc::new(box Bob as Box<Player + Send + Share>),
+            2 => Arc::new(box Charlie as Box<Player + Send + Share>),
+            3 => Arc::new(box Delta as Box<Player + Send + Share>),
+            _ => fail!("Unsupported number of players!"),
+        }).collect::<Vec<Arc<Box<Player + Send + Share>>>>();
 
         let mut player_state_map = HashMap::<&'static str, PlayerState>::new();
+        ::ACTIVE_PLAYER.replace(Some(ai_arcs.get(0).name()));
 
-        player_state_map.insert(alice.name(), PlayerState{
-            game_ref:      Rc::new(RefCell::new(game)),
-            myself:        Arc::new(alice),
-            other_players: DList::new(),
-            deck:          deck,
-            discard:       Vec::new(),
-            in_play:       Vec::new(),
-            hand:          hand,
-            actions:       1,
-            buys:          1,
-            buying_power:  0,
-        });
+        let other_players = ai_arcs.clone().move_iter().collect::<PlayerList>();
+
+        for (index, ai) in ai_arcs.move_iter().enumerate() {
+            let mut other_players = other_players.clone();
+            while other_players.front().unwrap().name() != ai.name() {
+                other_players.rotate_backward();
+            }
+            other_players.pop_front();
+            let stub = ais.get(index);
+            player_state_map.insert(ai.name(), PlayerState{
+                game_ref:      game_ref.clone(),
+                myself:        ai.clone(),
+                other_players: other_players,
+                deck:          stub.deck.clone(),
+                discard:       vec![],
+                in_play:       vec![],
+                hand:          stub.hand.clone(),
+                actions:       1,
+                buys:          1,
+                buying_power:  0,
+            });
+        }
 
         ::STATE_MAP.replace(Some(RefCell::new(player_state_map)));
     }

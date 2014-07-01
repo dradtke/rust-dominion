@@ -441,12 +441,14 @@ pub fn set() -> HashSet<&'static str> {
 mod tests {
     use super::{CELLAR, CHAPEL, CHANCELLOR};
     use super::super::{COPPER, SILVER, GOLD, ESTATE};
-    use super::super::test::{assert_ok, setup};
-    use super::super::super::{Discard, Trash};
+    use super::super::test::{Ai, assert_ok, setup};
+    use super::super::super::{Confirm, Discard, Trash};
 
     #[test]
     fn test_cellar() {
-        setup(vec![CELLAR, ESTATE, ESTATE, COPPER], vec![SILVER, GOLD]);
+        setup(vec![
+            Ai{ hand: vec![CELLAR, ESTATE, ESTATE, COPPER], deck: vec![SILVER, GOLD] },
+        ]);
         assert_ok(::play_card_and(super::CELLAR, vec![Discard(ESTATE), Discard(ESTATE)].as_slice()));
         let hand = ::get_hand();
         assert_eq!(hand.len(), 3);
@@ -458,7 +460,9 @@ mod tests {
 
     #[test]
     fn test_chapel() {
-        setup(vec![CHAPEL, ESTATE, ESTATE, COPPER, ESTATE, COPPER], vec![]);
+        setup(vec![
+            Ai{ hand: vec![CHAPEL, ESTATE, ESTATE, COPPER, ESTATE, COPPER], deck: vec![] },
+        ]);
         assert_eq!(::get_trash().len(), 0);
         assert_ok(::play_card_and(CHAPEL, vec![Trash(ESTATE), Trash(ESTATE), Trash(ESTATE), Trash(COPPER)].as_slice()));
         let hand = ::get_hand();
@@ -478,9 +482,20 @@ mod tests {
 
     #[test]
     fn test_chancellor() {
-        // TODO: test the deck-to-discard piece
-        setup(vec![CHANCELLOR], vec![]);
+        // Don't discard the deck.
+        setup(vec![
+            Ai{ hand: vec![CHANCELLOR], deck: vec![COPPER, COPPER] },
+        ]);
         assert_ok(::play_card(CHANCELLOR));
         assert_eq!(::get_buying_power(), 2);
+        assert_eq!(::get_discard().len(), 0);
+
+        // Discard the deck.
+        setup(vec![
+            Ai{ hand: vec![CHANCELLOR], deck: vec![COPPER, COPPER] },
+        ]);
+        assert_ok(::play_card_and(CHANCELLOR, vec![Confirm].as_slice()));
+        assert_eq!(::get_buying_power(), 2);
+        assert_eq!(::get_discard().len(), 2);
     }
 }

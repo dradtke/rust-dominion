@@ -5,7 +5,8 @@
 //! defining a new empty struct and implementing the `Player` trait, like so:
 //!
 //! ~~~
-//! #[phase(plugin, link)] extern crate dominion;
+//! #[phase(plugin, link)]
+//! extern crate dominion;
 //!
 //! struct Me;
 //! impl dominion::Player for Me {
@@ -253,12 +254,12 @@ pub fn get_buying_power() -> uint {
     with_active_player(|player| player.buying_power)
 }
 
+/// Get a copy of the player's discard pile.
+pub fn get_discard() -> Vec<Card> {
+    with_active_player(|player| player.discard.clone())
+}
+
 /// Get a copy of the player's hand.
-///
-/// The Card type is defined as a static pointer to a CardDef, so it's not as
-/// expensive as if it cloned the card definitions themselves, but
-/// is still more expensive than an implementation using an Arc
-/// or similar utility.
 pub fn get_hand() -> Vec<Card> {
     with_active_player(|player| player.hand.clone())
 }
