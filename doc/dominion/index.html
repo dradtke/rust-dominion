@@ -41,29 +41,26 @@
     </nav>
 
     <section id='main' class="content mod">
-<h1 class='fqn'>Crate <a class='mod' href=''>dominion</a><a class='source' id='src-0' href='../src/dominion/src/mod.rs.html#1-1263'>[src]</a></h1>
+<h1 class='fqn'>Crate <a class='mod' href=''>dominion</a><a class='source' id='src-0' href='../src/dominion/src/mod.rs.html#1-1260'>[src]</a></h1>
 <div class='docblock'><p>This module provides an API for writing Dominion AI&#39;s in Rust. AI&#39;s are created by
 defining a new empty struct and implementing the <code>Player</code> trait, like so:</p>
 <pre class='rust '>
 <span class='attribute'>#[<span class='ident'>phase</span>(<span class='ident'>plugin</span>, <span class='ident'>link</span>)]</span>
-<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>dominion</span>;
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>dominion</span>;<span class='comment'>
 
-<span class='kw'>struct</span> <span class='ident'>Me</span>;
+// Define our awesome custom strategy.
+</span><span class='kw'>struct</span> <span class='ident'>Me</span>;
 <span class='kw'>impl</span> <span class='ident'>dominion</span>::<span class='ident'>Player</span> <span class='kw'>for</span> <span class='ident'>Me</span> {
     <span class='kw'>fn</span> <span class='ident'>name</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span> { <span class='string'>&quot;Me&quot;</span> }
     <span class='kw'>fn</span> <span class='ident'>init</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='kw'>fn</span>() { <span class='ident'>my_turn</span> }
 }
 
-<span class='kw'>fn</span> <span class='ident'>my_turn</span>() {<span class='comment'>
-    // Do our awesome custom strategy.
-    </span><span class='ident'>dominion</span>::<span class='ident'>strat</span>::<span class='ident'>big_money</span>();
-}
+<span class='kw'>fn</span> <span class='ident'>my_turn</span>() {
+    <span class='ident'>dominion</span>::<span class='ident'>strat</span>::<span class='ident'>big_money</span>();
+}<span class='comment'>
 
-<span class='kw'>struct</span> <span class='ident'>Them</span>;
-<span class='kw'>impl</span> <span class='ident'>dominion</span>::<span class='ident'>Player</span> <span class='kw'>for</span> <span class='ident'>Them</span> {
-    <span class='kw'>fn</span> <span class='ident'>name</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span> { <span class='string'>&quot;Them&quot;</span> }
-    <span class='kw'>fn</span> <span class='ident'>init</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='kw'>fn</span>() { <span class='ident'>dominion</span>::<span class='ident'>strat</span>::<span class='ident'>big_money</span> }
-}
+// Define our opponent&#39;s lousy strategy using the `player!` macro.
+</span><span class='macro'>player</span><span class='macro'>!</span>(<span class='ident'>Them</span>, <span class='ident'>dominion</span>::<span class='ident'>strat</span>::<span class='ident'>big_money</span>)
 
 <span class='kw'>fn</span> <span class='ident'>main</span>() {
     <span class='macro'>dominion</span><span class='macro'>!</span>(<span class='ident'>Me</span>, <span class='ident'>Them</span>);
@@ -76,8 +73,8 @@ for successful strategies; if you can&#39;t beat Big Money reliably, then you re
 need to think about going back to the drawing board.</p>
 
 <p>Strategies can be made more complex by overriding the other methods provided by
-the <code>Player</code> trait. Otherwise, everything takes place in <code>take_turn()</code>, which will
-be executed every time it&#39;s your AI&#39;s turn to play.</p>
+the <code>Player</code> trait. Otherwise, everything takes place in the function returned
+by <code>init()</code>, which will be executed every time it&#39;s your AI&#39;s turn to play.</p>
 
 <p>Actions like playing and buying cards are achieved by using the public methods
 exposed by this module. The game keeps track of who the active player is, so

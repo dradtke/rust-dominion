@@ -1300,9 +1300,6 @@
 <span id='1258'>1258</span>
 <span id='1259'>1259</span>
 <span id='1260'>1260</span>
-<span id='1261'>1261</span>
-<span id='1262'>1262</span>
-<span id='1263'>1263</span>
 </pre><pre class='rust '>
 <span class='doccomment'>//! This module provides an API for writing Dominion AI&#39;s in Rust. AI&#39;s are created by</span>
 <span class='doccomment'>//! defining a new empty struct and implementing the `Player` trait, like so:</span>
@@ -1311,6 +1308,7 @@
 <span class='doccomment'>//! #[phase(plugin, link)]</span>
 <span class='doccomment'>//! extern crate dominion;</span>
 <span class='doccomment'>//!</span>
+<span class='doccomment'>//! // Define our awesome custom strategy.</span>
 <span class='doccomment'>//! struct Me;</span>
 <span class='doccomment'>//! impl dominion::Player for Me {</span>
 <span class='doccomment'>//!     fn name(&amp;self) -&gt; &amp;&#39;static str { &quot;Me&quot; }</span>
@@ -1318,15 +1316,11 @@
 <span class='doccomment'>//! }</span>
 <span class='doccomment'>//!</span>
 <span class='doccomment'>//! fn my_turn() {</span>
-<span class='doccomment'>//!     // Do our awesome custom strategy.</span>
 <span class='doccomment'>//!     dominion::strat::big_money();</span>
 <span class='doccomment'>//! }</span>
 <span class='doccomment'>//!</span>
-<span class='doccomment'>//! struct Them;</span>
-<span class='doccomment'>//! impl dominion::Player for Them {</span>
-<span class='doccomment'>//!     fn name(&amp;self) -&gt; &amp;&#39;static str { &quot;Them&quot; }</span>
-<span class='doccomment'>//!     fn init(&amp;self) -&gt; fn() { dominion::strat::big_money }</span>
-<span class='doccomment'>//! }</span>
+<span class='doccomment'>//! // Define our opponent&#39;s lousy strategy using the `player!` macro.</span>
+<span class='doccomment'>//! player!(Them, dominion::strat::big_money)</span>
 <span class='doccomment'>//!</span>
 <span class='doccomment'>//! fn main() {</span>
 <span class='doccomment'>//!     dominion!(Me, Them);</span>
@@ -1339,8 +1333,8 @@
 <span class='doccomment'>//! need to think about going back to the drawing board.</span>
 <span class='doccomment'>//!</span>
 <span class='doccomment'>//! Strategies can be made more complex by overriding the other methods provided by</span>
-<span class='doccomment'>//! the `Player` trait. Otherwise, everything takes place in `take_turn()`, which will</span>
-<span class='doccomment'>//! be executed every time it&#39;s your AI&#39;s turn to play.</span>
+<span class='doccomment'>//! the `Player` trait. Otherwise, everything takes place in the function returned</span>
+<span class='doccomment'>//! by `init()`, which will be executed every time it&#39;s your AI&#39;s turn to play.</span>
 <span class='doccomment'>//!</span>
 <span class='doccomment'>//! Actions like playing and buying cards are achieved by using the public methods</span>
 <span class='doccomment'>//! exposed by this module. The game keeps track of who the active player is, so</span>
@@ -1475,7 +1469,7 @@
 </span><span class='attribute'>#[<span class='ident'>allow</span>(<span class='ident'>unused_variable</span>)]</span>
 <span class='doccomment'>/// A player definition.</span>
 <span class='doccomment'>///</span>
-<span class='doccomment'>/// The only required methods are `name()` and `take_turn()`,</span>
+<span class='doccomment'>/// The only required methods are `name()` and `init()`,</span>
 <span class='doccomment'>/// but other methods may be overridden in order to gain more control over</span>
 <span class='doccomment'>/// your player.</span>
 <span class='kw'>pub</span> <span class='kw'>trait</span> <span class='ident'>Player</span> {
