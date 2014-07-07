@@ -1,4 +1,4 @@
-#![crate_id = "dominion#0.1.0"]
+#![crate_name = "dominion"]
 #![crate_type = "lib"]
 
 //! This module provides an API for writing Dominion AI's in Rust. AI's are created by

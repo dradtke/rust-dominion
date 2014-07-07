@@ -4,20 +4,20 @@ use super::{Card, CardDef, Money, Victory, Curse};
 
 pub mod dominion;
 
-pub static COPPER: Card = &'static CardDef { name: "Copper", cost: 0, types: &'static[Money(1)] };
-pub static SILVER: Card = &'static CardDef { name: "Silver", cost: 3, types: &'static[Money(2)] };
-pub static GOLD:   Card = &'static CardDef { name: "Gold", cost: 6, types: &'static[Money(3)] };
+pub static COPPER: Card = &CardDef { name: "Copper", cost: 0, types: [Money(1)] };
+pub static SILVER: Card = &CardDef { name: "Silver", cost: 3, types: [Money(2)] };
+pub static GOLD:   Card = &CardDef { name: "Gold", cost: 6, types: [Money(3)] };
 
-pub static ESTATE: Card = &'static CardDef { name: "Estate", cost: 2, types: &'static[Victory(get_estate_value)] };
+pub static ESTATE: Card = &CardDef { name: "Estate", cost: 2, types: [Victory(get_estate_value)] };
 fn get_estate_value() -> int { 1 }
 
-pub static DUCHY: Card = &'static CardDef { name: "Duchy", cost: 5, types: &'static[Victory(get_duchy_value)] };
+pub static DUCHY: Card = &CardDef { name: "Duchy", cost: 5, types: [Victory(get_duchy_value)] };
 fn get_duchy_value() -> int { 3 }
 
-pub static PROVINCE: Card = &'static CardDef { name: "Province", cost: 8, types: &'static[Victory(get_province_value)] };
+pub static PROVINCE: Card = &CardDef { name: "Province", cost: 8, types: [Victory(get_province_value)] };
 fn get_province_value() -> int { 6 }
 
-pub static CURSE: Card = &'static CardDef { name: "Curse", cost: 0, types: &'static[Curse(-1)] };
+pub static CURSE: Card = &CardDef { name: "Curse", cost: 0, types: [Curse(-1)] };
 
 
 /// This is a hack needed until Rust can properly hash function pointers.
@@ -72,25 +72,25 @@ mod test {
 
     struct Alice;
     impl Player for Alice {
-        fn name(&self) -> &'static str { "Alice" }
+        fn name(&self) ->  str { "Alice" }
         fn take_turn(&self) {}
     }
 
     struct Bob;
     impl Player for Bob {
-        fn name(&self) -> &'static str { "Bob" }
+        fn name(&self) ->  str { "Bob" }
         fn take_turn(&self) {}
     }
 
     struct Charlie;
     impl Player for Charlie {
-        fn name(&self) -> &'static str { "Charlie" }
+        fn name(&self) ->  str { "Charlie" }
         fn take_turn(&self) {}
     }
 
     struct Delta;
     impl Player for Delta {
-        fn name(&self) -> &'static str { "Delta" }
+        fn name(&self) ->  str { "Delta" }
         fn take_turn(&self) {}
     }
 
@@ -117,7 +117,7 @@ mod test {
             _ => fail!("Unsupported number of players!"),
         }).collect::<Vec<Arc<Box<Player + Send + Share>>>>();
 
-        let mut player_state_map = HashMap::<&'static str, PlayerState>::new();
+        let mut player_state_map = HashMap::< str, PlayerState>::new();
         ::ACTIVE_PLAYER.replace(Some(ai_arcs.get(0).name()));
 
         let other_players = ai_arcs.clone().move_iter().collect::<PlayerList>();
