@@ -5,6 +5,7 @@
 //! #[phase(plugin, link)]
 //! extern crate dominion;
 //!
+//! // Define our awesome custom strategy.
 //! struct Me;
 //! impl dominion::Player for Me {
 //!     fn name(&self) -> &'static str { "Me" }
@@ -12,15 +13,11 @@
 //! }
 //!
 //! fn my_turn() {
-//!     // Do our awesome custom strategy.
 //!     dominion::strat::big_money();
 //! }
 //!
-//! struct Them;
-//! impl dominion::Player for Them {
-//!     fn name(&self) -> &'static str { "Them" }
-//!     fn init(&self) -> fn() { dominion::strat::big_money }
-//! }
+//! // Define our opponent's lousy strategy using the `player!` macro.
+//! player!(Them, dominion::strat::big_money)
 //!
 //! fn main() {
 //!     dominion!(Me, Them);
