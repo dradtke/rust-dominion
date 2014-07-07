@@ -33,8 +33,8 @@
 //! need to think about going back to the drawing board.
 //!
 //! Strategies can be made more complex by overriding the other methods provided by
-//! the `Player` trait. Otherwise, everything takes place in `take_turn()`, which will
-//! be executed every time it's your AI's turn to play.
+//! the `Player` trait. Otherwise, everything takes place in the function returned
+//! by `init()`, which will be executed every time it's your AI's turn to play.
 //!
 //! Actions like playing and buying cards are achieved by using the public methods
 //! exposed by this module. The game keeps track of who the active player is, so
@@ -169,7 +169,7 @@ static PILE_SIZE: uint = 10;
 #[allow(unused_variable)]
 /// A player definition.
 ///
-/// The only required methods are `name()` and `take_turn()`,
+/// The only required methods are `name()` and `init()`,
 /// but other methods may be overridden in order to gain more control over
 /// your player.
 pub trait Player {
