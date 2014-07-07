@@ -12,6 +12,7 @@
     <link rel="stylesheet" type="text/css" href="../main.css">
 
     
+    
 </head>
 <body>
     <!--[if lte IE 8]>
@@ -20,6 +21,8 @@
         things.
     </div>
     <![endif]-->
+
+    
 
     <section class="sidebar">
         
@@ -38,11 +41,12 @@
     </nav>
 
     <section id='main' class="content mod">
-<h1 class='fqn'>Crate <a class='mod' href=''>dominion</a><a class='source' id='src-0' href='../src/dominion/dominion/mod.rs.html#1-1106'>[src]</a></h1>
+<h1 class='fqn'>Crate <a class='mod' href=''>dominion</a><a class='source' id='src-0' href='../src/dominion/src/mod.rs.html#1-1222'>[src]</a></h1>
 <div class='docblock'><p>This module provides an API for writing Dominion AI&#39;s in Rust. AI&#39;s are created by
 defining a new empty struct and implementing the <code>Player</code> trait, like so:</p>
 <pre class='rust '>
-<span class='attribute'>#[<span class='ident'>phase</span>(<span class='ident'>plugin</span>, <span class='ident'>link</span>)]</span> <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>dominion</span>;
+<span class='attribute'>#[<span class='ident'>phase</span>(<span class='ident'>plugin</span>, <span class='ident'>link</span>)]</span>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>dominion</span>;
 
 <span class='kw'>struct</span> <span class='ident'>Me</span>;
 <span class='kw'>impl</span> <span class='ident'>dominion</span>::<span class='ident'>Player</span> <span class='kw'>for</span> <span class='ident'>Me</span> {
@@ -85,14 +89,14 @@ executable called <code>main</code> and running <code>./main</code> will play 1,
 </div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
 <table>
                     <tr>
-                        <td><a class='mod' href='card/index.html'
-                               title='dominion::card'>card</a></td>
-                        <td class='docblock short'><p>Card definitions.</p>
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='mod' href='cards/index.html'
+                               title='dominion::cards'>cards</a></td>
+                        <td class='docblock short'><p>Universal card definitions.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='mod' href='strat/index.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='mod' href='strat/index.html'
                                title='dominion::strat'>strat</a></td>
                         <td class='docblock short'><p>Strategy examples.</p>
 </td>
@@ -100,22 +104,29 @@ executable called <code>main</code> and running <code>./main</code> will play 1,
                 </table><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
 <table>
                     <tr>
-                        <td><a class='macro' href='macro.dominion!.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='macro' href='macro.dominion!.html'
                                title='dominion::dominion!'>dominion!</a></td>
                         <td class='docblock short'><p>Play Dominion.</p>
+</td>
+                    </tr>
+                
+                    <tr>
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='macro' href='macro.kingdom!.html'
+                               title='dominion::kingdom!'>kingdom!</a></td>
+                        <td class='docblock short'><p>Set a Kingdom to play with.</p>
 </td>
                     </tr>
                 </table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
 <table>
                     <tr>
-                        <td><a class='type' href='type.ActionInput.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='type' href='type.ActionInput.html'
                                title='dominion::ActionInput'>ActionInput</a></td>
                         <td class='docblock short'><p>Input parameters for card plays.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='type' href='type.Error.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='type' href='type.Error.html'
                                title='dominion::Error'>Error</a></td>
                         <td class='docblock short'><p>A custom error type for reporting strategic errors.</p>
 </td>
@@ -123,7 +134,7 @@ executable called <code>main</code> and running <code>./main</code> will play 1,
                 </table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
 <table>
                     <tr>
-                        <td><a class='trait' href='trait.Player.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='trait' href='trait.Player.html'
                                title='dominion::Player'>Player</a></td>
                         <td class='docblock short'><p>A player definition.</p>
 </td>
@@ -131,7 +142,7 @@ executable called <code>main</code> and running <code>./main</code> will play 1,
                 </table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
 <table>
                     <tr>
-                        <td><a class='fn' href='fn.buy.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.buy.html'
                                title='dominion::buy'>buy</a></td>
                         <td class='docblock short'><p>Buy a card from the supply, returning one of three possible
 errors:</p>
@@ -139,7 +150,7 @@ errors:</p>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.count.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.count.html'
                                title='dominion::count'>count</a></td>
                         <td class='docblock short'><p>Returns either the number available for a given card, or None
 if the card wasn&#39;t available in this game.</p>
@@ -147,42 +158,49 @@ if the card wasn&#39;t available in this game.</p>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.get_action_count.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.get_action_count.html'
                                title='dominion::get_action_count'>get_action_count</a></td>
                         <td class='docblock short'><p>Get the number of actions left for the current player.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.get_available_money.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.get_available_money.html'
                                title='dominion::get_available_money'>get_available_money</a></td>
                         <td class='docblock short'><p>Get a count of the total available money currently in the player&#39;s hand.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.get_buying_power.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.get_buying_power.html'
                                title='dominion::get_buying_power'>get_buying_power</a></td>
                         <td class='docblock short'><p>Get the current available buying power.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.get_hand.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.get_discard.html'
+                               title='dominion::get_discard'>get_discard</a></td>
+                        <td class='docblock short'><p>Get a copy of the player&#39;s discard pile.</p>
+</td>
+                    </tr>
+                
+                    <tr>
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.get_hand.html'
                                title='dominion::get_hand'>get_hand</a></td>
                         <td class='docblock short'><p>Get a copy of the player&#39;s hand.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.get_hand_size.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.get_hand_size.html'
                                title='dominion::get_hand_size'>get_hand_size</a></td>
                         <td class='docblock short'><p>Get the number of cards in the player&#39;s hand.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.get_total_points.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.get_total_points.html'
                                title='dominion::get_total_points'>get_total_points</a></td>
                         <td class='docblock short'><p>Get the total point value from all victory
 and curse cards in the player&#39;s deck, hand, and discard.</p>
@@ -190,14 +208,14 @@ and curse cards in the player&#39;s deck, hand, and discard.</p>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.get_trash.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.get_trash.html'
                                title='dominion::get_trash'>get_trash</a></td>
                         <td class='docblock short'><p>Get a clone of the game&#39;s trash pile.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.hand_contains.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.hand_contains.html'
                                title='dominion::hand_contains'>hand_contains</a></td>
                         <td class='docblock short'><p>Returns true if and only if the player&#39;s hand contains
 the specified card.</p>
@@ -205,7 +223,7 @@ the specified card.</p>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.has.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.has.html'
                                title='dominion::has'>has</a></td>
                         <td class='docblock short'><p>Returns true if and only if the player has the provided card in their
 hand, deck, discard, or in play.</p>
@@ -213,7 +231,7 @@ hand, deck, discard, or in play.</p>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.number_of.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.number_of.html'
                                title='dominion::number_of'>number_of</a></td>
                         <td class='docblock short'><p>Returns the number of instances of the provided card
 that the player has in their hand, deck, discard, or in play.</p>
@@ -221,45 +239,52 @@ that the player has in their hand, deck, discard, or in play.</p>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.play.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.play.html'
                                title='dominion::play'>play</a></td>
                         <td class='docblock short'><p>The entry point for playing a game, usually used via the shorthand <code>play!</code> macro.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.play_all_money.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.play_all_money.html'
                                title='dominion::play_all_money'>play_all_money</a></td>
                         <td class='docblock short'><p>Plays all Money cards in the player&#39;s hand.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.play_card.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.play_card.html'
                                title='dominion::play_card'>play_card</a></td>
                         <td class='docblock short'><p>Play a card with no input parameters. See <code>play_card_and()</code>.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='fn' href='fn.play_card_and.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.play_card_and.html'
                                title='dominion::play_card_and'>play_card_and</a></td>
                         <td class='docblock short'><p>Play a card.</p>
+</td>
+                    </tr>
+                
+                    <tr>
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='fn' href='fn.set_kingdom.html'
+                               title='dominion::set_kingdom'>set_kingdom</a></td>
+                        <td class='docblock short'><p>Sets the kingdom to be used.</p>
 </td>
                     </tr>
                 </table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
 <table>
                     <tr>
-                        <td><a class='type' href='type.Card.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='type' href='type.Card.html'
                                title='dominion::Card'>Card</a></td>
                         <td class='docblock short'><p>A static pointer to a card definition.</p>
 </td>
                     </tr>
                 
                     <tr>
-                        <td><a class='type' href='type.Result.html'
+                        <td><a class='stability Unmarked' title='No stability level'></a><a class='type' href='type.Result.html'
                                title='dominion::Result'>Result</a></td>
-                        <td class='docblock short'><p>An alias for <code>std::result::Result&lt;(), Error&gt;</code>.</p>
+                        <td class='docblock short'><p>An alias for <code>std::result::Result&lt;(), dominion::Error&gt;</code>.</p>
 </td>
                     </tr>
                 </table></section>
@@ -297,6 +322,8 @@ that the player has in their hand, deck, discard, or in play.</p>
             </p>
         </div>
     </div>
+
+    
 
     <script>
         window.rootPath = "../";

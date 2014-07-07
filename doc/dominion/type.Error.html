@@ -12,6 +12,7 @@
     <link rel="stylesheet" type="text/css" href="../main.css">
 
     
+    
 </head>
 <body>
     <!--[if lte IE 8]>
@@ -21,9 +22,11 @@
     </div>
     <![endif]-->
 
+    
+
     <section class="sidebar">
         
-        <p class='location'><a href='index.html'>dominion</a></p><div class='block mod'><h2>Modules</h2><a class='mod ' href='card/index.html'>card</a><a class='mod ' href='strat/index.html'>strat</a></div><div class='block trait'><h2>Traits</h2><a class='trait ' href='trait.Player.html'>Player</a></div><div class='block fn'><h2>Functions</h2><a class='fn ' href='fn.buy.html'>buy</a><a class='fn ' href='fn.count.html'>count</a><a class='fn ' href='fn.get_action_count.html'>get_action_count</a><a class='fn ' href='fn.get_available_money.html'>get_available_money</a><a class='fn ' href='fn.get_buying_power.html'>get_buying_power</a><a class='fn ' href='fn.get_hand.html'>get_hand</a><a class='fn ' href='fn.get_hand_size.html'>get_hand_size</a><a class='fn ' href='fn.get_total_points.html'>get_total_points</a><a class='fn ' href='fn.get_trash.html'>get_trash</a><a class='fn ' href='fn.hand_contains.html'>hand_contains</a><a class='fn ' href='fn.has.html'>has</a><a class='fn ' href='fn.number_of.html'>number_of</a><a class='fn ' href='fn.play.html'>play</a><a class='fn ' href='fn.play_all_money.html'>play_all_money</a><a class='fn ' href='fn.play_card.html'>play_card</a><a class='fn ' href='fn.play_card_and.html'>play_card_and</a></div><div class='block macro'><h2>Macros</h2><a class='macro ' href='macro.dominion!.html'>dominion!</a></div>
+        <p class='location'><a href='index.html'>dominion</a></p><div class='block mod'><h2>Modules</h2><a class='mod ' href='cards/index.html'>cards</a><a class='mod ' href='strat/index.html'>strat</a></div><div class='block trait'><h2>Traits</h2><a class='trait ' href='trait.Player.html'>Player</a></div><div class='block fn'><h2>Functions</h2><a class='fn ' href='fn.buy.html'>buy</a><a class='fn ' href='fn.count.html'>count</a><a class='fn ' href='fn.get_action_count.html'>get_action_count</a><a class='fn ' href='fn.get_available_money.html'>get_available_money</a><a class='fn ' href='fn.get_buying_power.html'>get_buying_power</a><a class='fn ' href='fn.get_discard.html'>get_discard</a><a class='fn ' href='fn.get_hand.html'>get_hand</a><a class='fn ' href='fn.get_hand_size.html'>get_hand_size</a><a class='fn ' href='fn.get_total_points.html'>get_total_points</a><a class='fn ' href='fn.get_trash.html'>get_trash</a><a class='fn ' href='fn.hand_contains.html'>hand_contains</a><a class='fn ' href='fn.has.html'>has</a><a class='fn ' href='fn.number_of.html'>number_of</a><a class='fn ' href='fn.play.html'>play</a><a class='fn ' href='fn.play_all_money.html'>play_all_money</a><a class='fn ' href='fn.play_card.html'>play_card</a><a class='fn ' href='fn.play_card_and.html'>play_card_and</a><a class='fn ' href='fn.set_kingdom.html'>set_kingdom</a></div><div class='block macro'><h2>Macros</h2><a class='macro ' href='macro.dominion!.html'>dominion!</a><a class='macro ' href='macro.kingdom!.html'>kingdom!</a></div>
     </section>
 
     <nav class="sub">
@@ -38,7 +41,7 @@
     </nav>
 
     <section id='main' class="content type">
-<h1 class='fqn'>Enum <a href='index.html'>dominion</a>::<a class='type' href=''>Error</a><a class='source' id='src-7202' href='../src/dominion/dominion/mod.rs.html#1043-1051'>[src]</a></h1>
+<h1 class='fqn'>Enum <a href='index.html'>dominion</a>::<a class='type' href=''>Error</a><a class='source' id='src-8261' href='../src/dominion/src/mod.rs.html#1159-1167'>[src]</a></h1>
 <pre class='rust enum'>pub enum Error {
     NoActions,
     NoBuys,
@@ -47,14 +50,14 @@
     EmptyPile(<a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>),
     NotInHand(<a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>),
     NotEnoughMoney {
-        pub need: <a href='http://doc.rust-lang.org/std/primitive.uint.html'>uint</a>,
-        pub have: <a href='http://doc.rust-lang.org/std/primitive.uint.html'>uint</a>,
+        pub need: <a href='http://doc.rust-lang.org/0.11.0/std/primitive.uint.html'>uint</a>,
+        pub have: <a href='http://doc.rust-lang.org/0.11.0/std/primitive.uint.html'>uint</a>,
     },
 }</pre><div class='docblock'><p>A custom error type for reporting strategic errors.</p>
 </div><h2 class='variants'>Variants</h2>
-<table><tr><td id='variant.NoActions'><code>NoActions</code></td><td></td></tr><tr><td id='variant.NoBuys'><code>NoBuys</code></td><td></td></tr><tr><td id='variant.InvalidPlay'><code>InvalidPlay</code></td><td></td></tr><tr><td id='variant.NotInSupply'><code>NotInSupply</code></td><td></td></tr><tr><td id='variant.EmptyPile'><code>EmptyPile</code></td><td></td></tr><tr><td id='variant.NotInHand'><code>NotInHand</code></td><td></td></tr><tr><td id='variant.NotEnoughMoney'><code>NotEnoughMoney</code></td><td><h3 class='fields'>Fields</h3>
+<table><tr><td id='variant.NoActions'><a class='stability Unmarked' title='No stability level'></a><code>NoActions</code></td><td></td></tr><tr><td id='variant.NoBuys'><a class='stability Unmarked' title='No stability level'></a><code>NoBuys</code></td><td></td></tr><tr><td id='variant.InvalidPlay'><a class='stability Unmarked' title='No stability level'></a><code>InvalidPlay</code></td><td></td></tr><tr><td id='variant.NotInSupply'><a class='stability Unmarked' title='No stability level'></a><code>NotInSupply</code></td><td></td></tr><tr><td id='variant.EmptyPile'><a class='stability Unmarked' title='No stability level'></a><code>EmptyPile</code></td><td></td></tr><tr><td id='variant.NotInHand'><a class='stability Unmarked' title='No stability level'></a><code>NotInHand</code></td><td></td></tr><tr><td id='variant.NotEnoughMoney'><a class='stability Unmarked' title='No stability level'></a><code>NotEnoughMoney</code></td><td><h3 class='fields'>Fields</h3>
 
-                                              <table><tr><td id='variant.NotEnoughMoney.field.need'><code>need</code></td><td></td></tr><tr><td id='variant.NotEnoughMoney.field.have'><code>have</code></td><td></td></tr></table></td></tr></table><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/core/fmt/trait.Show.html' title='core::fmt::Show'>Show</a> for <a class='type' href='../dominion/type.Error.html' title='dominion::Error'>Error</a></code></h3><div class='methods'><h4 id='method.fmt' class='method'><code>fn <a href='#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+                                              <table><tr><td id='variant.NotEnoughMoney.field.need'><code>need</code></td><td></td></tr><tr><td id='variant.NotEnoughMoney.field.have'><code>have</code></td><td></td></tr></table></td></tr></table><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><a class='stability Unmarked' title='No stability level'></a><code>impl <a class='trait' href='http://doc.rust-lang.org/0.11.0/core/fmt/trait.Show.html' title='core::fmt::Show'>Show</a> for <a class='type' href='../dominion/type.Error.html' title='dominion::Error'>Error</a></code></h3><div class='impl-methods'><h4 id='method.fmt' class='method'><a class='stability Experimental' title='Experimental'></a><code>fn <a href='#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/0.11.0/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/0.11.0/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
 </div></section>
     <section id='search' class="content hidden"></section>
 
@@ -90,6 +93,8 @@
             </p>
         </div>
     </div>
+
+    
 
     <script>
         window.rootPath = "../";

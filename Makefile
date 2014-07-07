@@ -1,30 +1,25 @@
-all:: lib example
 
 CFLAGS = -g
 
+all: lib example
+
 lib:
-	@echo "Building libdominion..."
 	@mkdir -p build
-	@rustc --out-dir build dominion/mod.rs $(CFLAGS)
-	@echo "done."
+	@rustc --out-dir build src/mod.rs $(CFLAGS)
 
 test:
-	@echo "Building libdominion tests..."
 	@mkdir -p build
-	@rustc --out-dir build --test dominion/mod.rs
-	@echo "done."
-	@echo -n "Running..."
+	@rustc --out-dir build --test src/mod.rs
 	@build/dominion
-	@echo "done."
 
 example:
-	@echo "Building main..."
-	@rustc -L build main.rs $(CFLAGS)
-	@echo "done."
+	@rustc -L build example/main.rs $(CFLAGS)
+
+docs:
+	@mkdir -p doc
+	@rustdoc -o doc src/mod.rs
 
 clean:
-	@echo -n "Cleaning..."
 	@rm -rf main main.exe build
-	@echo "done."
 
 .PHONY: lib example all clean
