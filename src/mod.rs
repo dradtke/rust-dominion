@@ -7,18 +7,19 @@
 //!
 //! struct Me;
 //! impl dominion::Player for Me {
-//!     fn name() -> &'static str { "Me" }
-//!     fn take_turn() {
-//!         dominion::strat::big_money();
-//!     }
+//!     fn name(&self) -> &'static str { "Me" }
+//!     fn init(&self) -> fn() { my_turn }
+//! }
+//!
+//! fn my_turn() {
+//!     // Do our awesome custom strategy.
+//!     dominion::strat::big_money();
 //! }
 //!
 //! struct Them;
 //! impl dominion::Player for Them {
-//!     fn name() -> &'static str { "Them" }
-//!     fn take_turn() {
-//!         dominion::strat::big_money();
-//!     }
+//!     fn name(&self) -> &'static str { "Them" }
+//!     fn init(&self) -> fn() { dominion::strat::big_money }
 //! }
 //!
 //! fn main() {
@@ -84,11 +85,11 @@ pub mod strat;
 /// which should be empty structs implementing `Player`.
 #[macro_export]
 macro_rules! dominion(
-    ($($player:ident),+) => ({
+    ($($player:ident),+) => (
         dominion::play(vec![$(
             box $player as Box<dominion::Player + Send + Share>,
         )+]);
-    })
+    )
 )
 
 /// Set a Kingdom to play with.
@@ -100,9 +101,49 @@ macro_rules! dominion(
 /// ignored.
 #[macro_export]
 macro_rules! kingdom(
-    ($($card:expr),+) => ({
+    ($($card:expr),+) => (
         dominion::set_kingdom(vec![$( $card, )+]);
-    })
+    )
+)
+
+/// Shortcut for defining a new Player.
+///
+/// The Player trait's init() function is useful if you want to
+/// define a flexible AI that can adapt to different Kingdoms.
+/// However, if you only ever want to execute one strategy, then
+/// this macro provides a convenient way to define a new player.
+/// For example, this...
+///
+/// ~~~
+/// struct Me;
+/// impl dominion::Player for Me {
+///     fn name(&self) -> &'static str { "Me" }
+///     fn init(&self) -> fn() { my_strategy }
+/// }
+///
+/// fn my_strategy() {
+///     // Do our awesome custom strategy.
+/// }
+/// ~~~
+///
+/// ...can be shortened to this:
+///
+/// ~~~
+/// player!(Me, my_strategy)
+///
+/// fn my_stategy() {
+///     // Do our awesome custom strategy.
+/// }
+/// ~~~
+#[macro_export]
+macro_rules! player(
+    ($player:ident using $f:expr) => {
+        struct $player;
+        impl dominion::Player for $player {
+            fn name(&self) -> &'static str { stringify!($player) }
+            fn init(&self, _: &[dominion::Card]) -> fn() { $f }
+        }
+    }
 )
 
 // Game setup keys.
@@ -110,6 +151,7 @@ local_data_key!(local_kingdom: Vec<Card>)
 
 // Game-specific keys.
 local_data_key!(local_state_map: RefCell<HashMap<&'static str, PlayerState>>)
+local_data_key!(local_fn_map: HashMap<&'static str, fn()>)
 local_data_key!(local_active_player: &'static str)
 local_data_key!(local_active_card: Card)
 
@@ -134,16 +176,10 @@ pub trait Player {
     /// Gets the name of this player, which must be unique.
     fn name(&self) -> &'static str;
 
-    /// Take a turn.
-    fn take_turn(&self);
-
-    /// Called before the first turn is played, and is passes in
-    /// a list of the cards that will be used this game. This can be used to
-    /// let a player decide what strategy they wish to use.
-    ///
-    /// By default does nothing.
-    fn init(&mut self, kingdom: &[Card]) {
-    }
+    /// Called before the first turn is played. `kingdom` is a slice of
+    /// the 10 cards that will be used this game, and it should return
+    /// a pointer to the function that will be called once per turn.
+    fn init(&self, kingdom: &[Card]) -> fn();
 
     /// Called when an Action card is encountered as part of a Library draw.
     /// It should return true if that card should be discarded, false if it
@@ -370,8 +406,10 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
     }
     writeln!(term, ".");
 
-    for mut player in player_list.move_iter() {
-        player.init(kingdom.as_slice());
+    let mut player_fn_map = HashMap::<&'static str, fn()>::new();
+
+    for player in player_list.move_iter() {
+        player_fn_map.insert(player.name(), player.init(kingdom.as_slice()));
         scores.insert(player.name().to_str(), 0);
         player_arcs.push(Arc::new(player));
     }
@@ -382,6 +420,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
             let trash = trash.clone();
             let supply = supply.clone();
             let player_arcs = player_arcs.clone();
+            let player_fn_map = player_fn_map.clone();
 
             spawn(proc() {
                 let game_result = task::try(proc() {
@@ -422,6 +461,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
                     }
 
                     local_state_map.replace(Some(RefCell::new(player_state_map)));
+                    local_fn_map.replace(Some(player_fn_map));
 
                     play_game(players)
                 });
@@ -649,7 +689,8 @@ fn take_turn(p: &Box<Player + Send + Share>) {
         player.buys = 1;
         player.buying_power = 0;
     });
-    p.take_turn();
+    let map = local_fn_map.get().unwrap();
+    (*map.get(&p.name()))();
     with_active_player(|player| {
         player.discard_hand();
     });
@@ -1214,8 +1255,6 @@ pub type Card = &'static CardDef;
 pub type Result = std::result::Result<(), Error>;
 
 type ActionFunc = fn(&[ActionInput]);
-
-type PlayerFunc = fn(&mut PlayerState);
 
 type PlayerList = DList<Arc<Box<Player + Send + Share>>>;
 

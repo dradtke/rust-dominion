@@ -26,7 +26,7 @@
 
     <section class="sidebar">
         
-        <p class='location'><a href='index.html'>dominion</a></p><div class='block mod'><h2>Modules</h2><a class='mod ' href='cards/index.html'>cards</a><a class='mod ' href='strat/index.html'>strat</a></div><div class='block trait'><h2>Traits</h2><a class='trait current' href='trait.Player.html'>Player</a></div><div class='block fn'><h2>Functions</h2><a class='fn ' href='fn.buy.html'>buy</a><a class='fn ' href='fn.count.html'>count</a><a class='fn ' href='fn.get_action_count.html'>get_action_count</a><a class='fn ' href='fn.get_available_money.html'>get_available_money</a><a class='fn ' href='fn.get_buying_power.html'>get_buying_power</a><a class='fn ' href='fn.get_discard.html'>get_discard</a><a class='fn ' href='fn.get_hand.html'>get_hand</a><a class='fn ' href='fn.get_hand_size.html'>get_hand_size</a><a class='fn ' href='fn.get_total_points.html'>get_total_points</a><a class='fn ' href='fn.get_trash.html'>get_trash</a><a class='fn ' href='fn.hand_contains.html'>hand_contains</a><a class='fn ' href='fn.has.html'>has</a><a class='fn ' href='fn.number_of.html'>number_of</a><a class='fn ' href='fn.play.html'>play</a><a class='fn ' href='fn.play_all_money.html'>play_all_money</a><a class='fn ' href='fn.play_card.html'>play_card</a><a class='fn ' href='fn.play_card_and.html'>play_card_and</a><a class='fn ' href='fn.set_kingdom.html'>set_kingdom</a></div><div class='block macro'><h2>Macros</h2><a class='macro ' href='macro.dominion!.html'>dominion!</a><a class='macro ' href='macro.kingdom!.html'>kingdom!</a></div>
+        <p class='location'><a href='index.html'>dominion</a></p><div class='block mod'><h2>Modules</h2><a class='mod ' href='cards/index.html'>cards</a><a class='mod ' href='strat/index.html'>strat</a></div><div class='block trait'><h2>Traits</h2><a class='trait current' href='trait.Player.html'>Player</a></div><div class='block fn'><h2>Functions</h2><a class='fn ' href='fn.buy.html'>buy</a><a class='fn ' href='fn.count.html'>count</a><a class='fn ' href='fn.get_action_count.html'>get_action_count</a><a class='fn ' href='fn.get_available_money.html'>get_available_money</a><a class='fn ' href='fn.get_buying_power.html'>get_buying_power</a><a class='fn ' href='fn.get_discard.html'>get_discard</a><a class='fn ' href='fn.get_hand.html'>get_hand</a><a class='fn ' href='fn.get_hand_size.html'>get_hand_size</a><a class='fn ' href='fn.get_total_points.html'>get_total_points</a><a class='fn ' href='fn.get_trash.html'>get_trash</a><a class='fn ' href='fn.hand_contains.html'>hand_contains</a><a class='fn ' href='fn.has.html'>has</a><a class='fn ' href='fn.number_of.html'>number_of</a><a class='fn ' href='fn.play.html'>play</a><a class='fn ' href='fn.play_all_money.html'>play_all_money</a><a class='fn ' href='fn.play_card.html'>play_card</a><a class='fn ' href='fn.play_card_and.html'>play_card_and</a><a class='fn ' href='fn.set_kingdom.html'>set_kingdom</a></div><div class='block macro'><h2>Macros</h2><a class='macro ' href='macro.dominion!.html'>dominion!</a><a class='macro ' href='macro.kingdom!.html'>kingdom!</a><a class='macro ' href='macro.player!.html'>player!</a></div>
     </section>
 
     <nav class="sub">
@@ -41,12 +41,11 @@
     </nav>
 
     <section id='main' class="content trait">
-<h1 class='fqn'>Trait <a href='index.html'>dominion</a>::<a class='trait' href=''>Player</a><a class='source' id='src-3531' href='../src/dominion/src/mod.rs.html#131-209'>[src]</a></h1>
+<h1 class='fqn'>Trait <a href='index.html'>dominion</a>::<a class='trait' href=''>Player</a><a class='source' id='src-3545' href='../src/dominion/src/mod.rs.html#175-247'>[src]</a></h1>
 <pre class='rust trait'>pub trait Player {
     fn <a href='#tymethod.name' class='fnname'>name</a>(&amp;self) -&gt; &amp;'static <a href='http://doc.rust-lang.org/0.11.0/std/primitive.str.html'>str</a>;
-    fn <a href='#tymethod.take_turn' class='fnname'>take_turn</a>(&amp;self);
+    fn <a href='#tymethod.init' class='fnname'>init</a>(&amp;self, kingdom: &amp;<a href='http://doc.rust-lang.org/0.11.0/std/primitive.slice.html'>[<a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>]</a>) -&gt; fn();
 
-    fn <a href='#method.init' class='fnname'>init</a>(&amp;mut self, kingdom: &amp;<a href='http://doc.rust-lang.org/0.11.0/std/primitive.slice.html'>[<a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>]</a>) { ... }
     fn <a href='#method.library_should_discard' class='fnname'>library_should_discard</a>(&amp;self, drawn: <a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>) -&gt; <a href='http://doc.rust-lang.org/0.11.0/std/primitive.bool.html'>bool</a> { ... }
     fn <a href='#method.militia_discard' class='fnname'>militia_discard</a>(&amp;self, hand: &amp;<a href='http://doc.rust-lang.org/0.11.0/std/primitive.slice.html'>[<a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>]</a>) -&gt; <a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a> { ... }
     fn <a href='#method.moat_should_block' class='fnname'>moat_should_block</a>(&amp;self, attacker: <a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>) -&gt; <a href='http://doc.rust-lang.org/0.11.0/std/primitive.bool.html'>bool</a> { ... }
@@ -62,16 +61,13 @@ your player.</p>
             <h2 id='required-methods'>Required Methods</h2>
             <div class='methods'>
         <h3 id='tymethod.name' class='method'><a class='stability Unmarked' title='No stability level'></a><code>fn <a href='#tymethod.name' class='fnname'>name</a>(&amp;self) -&gt; &amp;'static <a href='http://doc.rust-lang.org/0.11.0/std/primitive.str.html'>str</a></code></h3><div class='docblock'><p>Gets the name of this player, which must be unique.</p>
-</div><h3 id='tymethod.take_turn' class='method'><a class='stability Unmarked' title='No stability level'></a><code>fn <a href='#tymethod.take_turn' class='fnname'>take_turn</a>(&amp;self)</code></h3><div class='docblock'><p>Take a turn.</p>
+</div><h3 id='tymethod.init' class='method'><a class='stability Unmarked' title='No stability level'></a><code>fn <a href='#tymethod.init' class='fnname'>init</a>(&amp;self, kingdom: &amp;<a href='http://doc.rust-lang.org/0.11.0/std/primitive.slice.html'>[<a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>]</a>) -&gt; fn()</code></h3><div class='docblock'><p>Called before the first turn is played. <code>kingdom</code> is a slice of
+the 10 cards that will be used this game, and it should return
+a pointer to the function that will be called once per turn.</p>
 </div></div>
             <h2 id='provided-methods'>Provided Methods</h2>
             <div class='methods'>
-        <h3 id='method.init' class='method'><a class='stability Unmarked' title='No stability level'></a><code>fn <a href='#method.init' class='fnname'>init</a>(&amp;mut self, kingdom: &amp;<a href='http://doc.rust-lang.org/0.11.0/std/primitive.slice.html'>[<a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>]</a>)</code></h3><div class='docblock'><p>Called before the first turn is played, and is passes in
-a list of the cards that will be used this game. This can be used to
-let a player decide what strategy they wish to use.</p>
-
-<p>By default does nothing.</p>
-</div><h3 id='method.library_should_discard' class='method'><a class='stability Unmarked' title='No stability level'></a><code>fn <a href='#method.library_should_discard' class='fnname'>library_should_discard</a>(&amp;self, drawn: <a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>) -&gt; <a href='http://doc.rust-lang.org/0.11.0/std/primitive.bool.html'>bool</a></code></h3><div class='docblock'><p>Called when an Action card is encountered as part of a Library draw.
+        <h3 id='method.library_should_discard' class='method'><a class='stability Unmarked' title='No stability level'></a><code>fn <a href='#method.library_should_discard' class='fnname'>library_should_discard</a>(&amp;self, drawn: <a class='type' href='../dominion/type.Card.html' title='dominion::Card'>Card</a>) -&gt; <a href='http://doc.rust-lang.org/0.11.0/std/primitive.bool.html'>bool</a></code></h3><div class='docblock'><p>Called when an Action card is encountered as part of a Library draw.
 It should return true if that card should be discarded, false if it
 should be kept.</p>
 
