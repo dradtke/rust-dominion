@@ -72,27 +72,29 @@ mod test {
 
     struct Alice;
     impl Player for Alice {
-        fn name(&self) ->  str { "Alice" }
-        fn take_turn(&self) {}
+        fn name(&self) -> &'static str { "Alice" }
+        fn init(&self, _: &[Card]) -> fn() { take_turn }
     }
 
     struct Bob;
     impl Player for Bob {
-        fn name(&self) ->  str { "Bob" }
-        fn take_turn(&self) {}
+        fn name(&self) -> &'static str { "Bob" }
+        fn init(&self, _: &[Card]) -> fn() { take_turn }
     }
 
     struct Charlie;
     impl Player for Charlie {
-        fn name(&self) ->  str { "Charlie" }
-        fn take_turn(&self) {}
+        fn name(&self) -> &'static str { "Charlie" }
+        fn init(&self, _: &[Card]) -> fn() { take_turn }
     }
 
     struct Delta;
     impl Player for Delta {
-        fn name(&self) ->  str { "Delta" }
-        fn take_turn(&self) {}
+        fn name(&self) -> &'static str { "Delta" }
+        fn init(&self, _: &[Card]) -> fn() { take_turn }
     }
+
+    fn take_turn() {}
 
     pub fn setup(ais: Vec<Ai>) {
         let trash = Vec::new();
@@ -117,7 +119,7 @@ mod test {
             _ => fail!("Unsupported number of players!"),
         }).collect::<Vec<Arc<Box<Player + Send + Share>>>>();
 
-        let mut player_state_map = HashMap::< str, PlayerState>::new();
+        let mut player_state_map = HashMap::<&'static str, PlayerState>::new();
         ::local_active_player.replace(Some(ai_arcs.get(0).name()));
 
         let other_players = ai_arcs.clone().move_iter().collect::<PlayerList>();

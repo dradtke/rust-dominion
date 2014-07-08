@@ -6,4 +6,6 @@ install:
     - sudo apt-get install rust-nightly
 
 script:
-    - rustc dominion/mod.rs
+    - rustc src/mod.rs
+    - rustc --test -o test src/mod.rs
+    - ./test
