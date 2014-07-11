@@ -100,13 +100,13 @@ mod test {
         let trash = Vec::new();
 
         let mut supply: Supply = HashMap::new();
-        supply.insert(COPPER.to_str(),   30);
-        supply.insert(SILVER.to_str(),   30);
-        supply.insert(GOLD.to_str(),     30);
-        supply.insert(ESTATE.to_str(),   12);
-        supply.insert(DUCHY.to_str(),    12);
-        supply.insert(PROVINCE.to_str(), 12);
-        supply.insert(CURSE.to_str(),    30);
+        supply.insert(COPPER.name.to_string(),   30);
+        supply.insert(SILVER.name.to_string(),   30);
+        supply.insert(GOLD.name.to_string(),     30);
+        supply.insert(ESTATE.name.to_string(),   12);
+        supply.insert(DUCHY.name.to_string(),    12);
+        supply.insert(PROVINCE.name.to_string(), 12);
+        supply.insert(CURSE.name.to_string(),    30);
 
         let game = GameState{supply: supply, trash: trash};
         let game_ref = Rc::new(RefCell::new(game));

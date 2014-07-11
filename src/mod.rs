@@ -264,7 +264,7 @@ pub fn buy(c: Card) -> Result {
     };
     with_active_player(|player| {
         if player.buying_power >= c.cost {
-            player.with_mut_supply(|supply| supply.insert(c.to_str(), pile - 1));
+            player.with_mut_supply(|supply| supply.insert(c.name.to_string(), pile - 1));
             player.discard.push(c);
             player.actions = 0;
             player.buying_power -= c.cost;
@@ -373,7 +373,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
     ];
     let matches = match getopts::getopts(args.tail(), opts) {
         Ok(m) => m,
-        Err(f) => fail!(f.to_str()),
+        Err(f) => fail!(format!("{}", f)),
     };
     let output_name = matches.opt_str("o");
 
@@ -399,7 +399,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
         if i == 8 {
             write!(term, "and ");
         }
-        supply.insert(card.to_str(), PILE_SIZE);
+        supply.insert(card.name.to_string(), PILE_SIZE);
     }
     writeln!(term, ".");
 
@@ -407,7 +407,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
 
     for player in player_list.move_iter() {
         player_fn_map.insert(player.name(), player.init(kingdom.as_slice()));
-        scores.insert(player.name().to_str(), 0);
+        scores.insert(player.name().to_string(), 0);
         player_arcs.push(Arc::new(player));
     }
 
@@ -597,13 +597,13 @@ fn build_kingdom() -> Vec<Card> {
 
 fn build_supply() -> Supply {
     let mut supply: Supply = HashMap::new();
-    supply.insert(cards::COPPER.to_str(),   30);
-    supply.insert(cards::SILVER.to_str(),   30);
-    supply.insert(cards::GOLD.to_str(),     30);
-    supply.insert(cards::ESTATE.to_str(),   12);
-    supply.insert(cards::DUCHY.to_str(),    12);
-    supply.insert(cards::PROVINCE.to_str(), 12);
-    supply.insert(cards::CURSE.to_str(),    30);
+    supply.insert(cards::COPPER.name.to_string(),   30);
+    supply.insert(cards::SILVER.name.to_string(),   30);
+    supply.insert(cards::GOLD.name.to_string(),     30);
+    supply.insert(cards::ESTATE.name.to_string(),   12);
+    supply.insert(cards::DUCHY.name.to_string(),    12);
+    supply.insert(cards::PROVINCE.name.to_string(), 12);
+    supply.insert(cards::CURSE.name.to_string(),    30);
     supply
 }
 
@@ -703,7 +703,7 @@ fn get_empty_limit(n: uint) -> uint {
 }
 
 fn is_game_finished(game: &GameState, empty_limit: uint) -> bool {
-    if *game.supply.find(&cards::PROVINCE.to_str()).unwrap() == 0 {
+    if *game.supply.find(&cards::PROVINCE.name.to_string()).unwrap() == 0 {
         true
     } else {
         let num_empty = game.supply.iter().filter(|&(_, &x)| x == 0).fold(0, |a, (_, &b)| a + b);
@@ -777,7 +777,7 @@ impl PlayerState {
             Some(0) => return Err(EmptyPile(c)),
             Some(pile) => pile,
         };
-        self.with_mut_supply(|supply| supply.insert(c.to_str(), pile - 1));
+        self.with_mut_supply(|supply| supply.insert(c.name.to_string(), pile - 1));
         self.discard.push(c);
         Ok(())
     }
@@ -790,7 +790,7 @@ impl PlayerState {
             Some(0) => return Err(EmptyPile(c)),
             Some(pile) => pile,
         };
-        self.with_mut_supply(|supply| supply.insert(c.to_str(), pile - 1));
+        self.with_mut_supply(|supply| supply.insert(c.name.to_string(), pile - 1));
         self.deck.unshift(c);
         Ok(())
     }
@@ -803,7 +803,7 @@ impl PlayerState {
             Some(0) => return Err(EmptyPile(c)),
             Some(pile) => pile,
         };
-        self.with_mut_supply(|supply| supply.insert(c.to_str(), pile - 1));
+        self.with_mut_supply(|supply| supply.insert(c.name.to_string(), pile - 1));
         self.hand.unshift(c);
         Ok(())
     }
@@ -814,7 +814,7 @@ impl PlayerState {
         if pile == 0 {
             Err(EmptyPile(cards::CURSE))
         } else {
-            self.with_mut_supply(|supply| supply.insert(cards::CURSE.to_str(), pile - 1));
+            self.with_mut_supply(|supply| supply.insert(cards::CURSE.name.to_string(), pile - 1));
             self.discard.push(cards::CURSE);
             Ok(())
         }
@@ -824,7 +824,7 @@ impl PlayerState {
     // or None if it wasn't included in this game.
     fn count(&mut self, c: Card) -> Option<uint> {
         self.with_supply(|supply| {
-            match supply.find(&c.to_str()) {
+            match supply.find(&c.name.to_string()) {
                 None => None,
                 Some(count) => Some(*count),
             }
@@ -1079,7 +1079,7 @@ enum CardType {
 
 impl PartialEq for CardType {
     fn eq(&self, other: &CardType) -> bool {
-        self.to_str().eq(&other.to_str())
+        self.to_string().eq(&other.to_string())
     }
 }
 
