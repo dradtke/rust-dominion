@@ -60,6 +60,7 @@ use std::fmt;
 use std::cell::RefCell;
 use std::collections::{Deque, DList, HashMap};
 use std::comm;
+use std::default::Default;
 use std::io::{File};
 use std::mem;
 use std::os;
@@ -264,7 +265,7 @@ pub fn buy(c: Card) -> Result {
     };
     with_active_player(|player| {
         if player.buying_power >= c.cost {
-            player.with_mut_supply(|supply| supply.insert(c.name.to_string(), pile - 1));
+            player.with_mut_supply(|supply| supply.insert(c.name, pile - 1));
             player.discard.push(c);
             player.actions = 0;
             player.buying_power -= c.cost;
@@ -399,7 +400,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
         if i == 8 {
             write!(term, "and ");
         }
-        supply.insert(card.name.to_string(), PILE_SIZE);
+        supply.insert(card.name, PILE_SIZE);
     }
     writeln!(term, ".");
 
@@ -419,22 +420,24 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
             let player_arcs = player_arcs.clone();
             let player_fn_map = player_fn_map.clone();
 
-            spawn(proc() {
-                let game_result = task::try(proc() {
-                    let mut rng = task_rng();
+            let future_result = task::try_future(proc() {
+                let mut rng = task_rng();
 
-                    let mut player_arcs = player_arcs;
-                    rng.shuffle(player_arcs.as_mut_slice());
+                let mut player_arcs = player_arcs;
+                rng.shuffle(player_arcs.as_mut_slice());
 
-                    let mut deck = Vec::new();
-                    deck.push_all_move(cards::COPPER.create_copies(7));
-                    deck.push_all_move(cards::ESTATE.create_copies(3));
-                    rng.shuffle(deck.as_mut_slice());
+                let mut deck = Vec::new();
+                deck.push_all_move(cards::COPPER.create_copies(7));
+                deck.push_all_move(cards::ESTATE.create_copies(3));
+                rng.shuffle(deck.as_mut_slice());
 
-                    let players = Rc::new(RefCell::new(DList::<Arc<Box<Player + Send + Share>>>::new()));
-                    let game = Rc::new(RefCell::new(GameState{ supply: supply, trash: trash }));
-                    let mut player_state_map = HashMap::<&'static str, PlayerState>::new();
-                    let other_players = player_arcs.clone().move_iter().collect::<PlayerList>();
+                let players = Rc::new(RefCell::new(DList::<Arc<Box<Player + Send + Share>>>::new()));
+                let game = Rc::new(RefCell::new(GameState{ supply: supply, trash: trash }));
+                let mut player_state_map = HashMap::<&'static str, PlayerState>::new();
+                let other_players = player_arcs.clone().move_iter().collect::<PlayerList>();
+
+                {
+                    let mut players = players.borrow_mut();
 
                     for p in player_arcs.move_iter() {
                         let mut other_players = other_players.clone();
@@ -443,33 +446,23 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
                         }
                         other_players.pop_front();
                         player_state_map.insert(p.name(), PlayerState{
-                            game_ref:      game.clone(),
-                            myself:        p.clone(),
+                            game_ref: game.clone(),
+                            myself: p.clone(),
                             other_players: other_players,
-                            deck:          deck.clone(),
-                            discard:       Vec::new(),
-                            in_play:       Vec::new(),
-                            hand:          Vec::new(),
-                            actions:       0,
-                            buys:          0,
-                            buying_power:  0,
+                            deck: deck.clone(),
+                            ..Default::default()
                         });
-                        (*(*players).borrow_mut()).push_back(p);
+                        players.push_back(p);
                     }
-
-                    local_state_map.replace(Some(RefCell::new(player_state_map)));
-                    local_fn_map.replace(Some(player_fn_map));
-
-                    play_game(players)
-                });
-
-                match game_result {
-                    Err(e) => {
-                        reporter.send(Err(e));
-                    },
-                    Ok(results) => reporter.send(Ok(results)),
                 }
+
+                local_state_map.replace(Some(RefCell::new(player_state_map)));
+                local_fn_map.replace(Some(player_fn_map));
+
+                play_game(players)
             });
+
+            reporter.send(future_result);
         }
     });
 
@@ -479,7 +472,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
     let mut output_file = output_name.clone().map(|x| File::create(&Path::new(x)).unwrap());
 
     for i in range(0, n) {
-        match receiver.recv() {
+        match receiver.recv().unwrap() {
             Err(e) => {
                 failures += 1;
                 log(output_file.as_mut(), format!("[failure] {:?}", e));
@@ -597,13 +590,13 @@ fn build_kingdom() -> Vec<Card> {
 
 fn build_supply() -> Supply {
     let mut supply: Supply = HashMap::new();
-    supply.insert(cards::COPPER.name.to_string(),   30);
-    supply.insert(cards::SILVER.name.to_string(),   30);
-    supply.insert(cards::GOLD.name.to_string(),     30);
-    supply.insert(cards::ESTATE.name.to_string(),   12);
-    supply.insert(cards::DUCHY.name.to_string(),    12);
-    supply.insert(cards::PROVINCE.name.to_string(), 12);
-    supply.insert(cards::CURSE.name.to_string(),    30);
+    supply.insert(cards::COPPER.name,   30);
+    supply.insert(cards::SILVER.name,   30);
+    supply.insert(cards::GOLD.name,     30);
+    supply.insert(cards::ESTATE.name,   12);
+    supply.insert(cards::DUCHY.name,    12);
+    supply.insert(cards::PROVINCE.name, 12);
+    supply.insert(cards::CURSE.name,    30);
     supply
 }
 
@@ -703,7 +696,7 @@ fn get_empty_limit(n: uint) -> uint {
 }
 
 fn is_game_finished(game: &GameState, empty_limit: uint) -> bool {
-    if *game.supply.find(&cards::PROVINCE.name.to_string()).unwrap() == 0 {
+    if *game.supply.find(&cards::PROVINCE.name).unwrap() == 0 {
         true
     } else {
         let num_empty = game.supply.iter().filter(|&(_, &x)| x == 0).fold(0, |a, (_, &b)| a + b);
@@ -763,6 +756,23 @@ struct PlayerState {
     buying_power: uint,
 }
 
+impl Default for PlayerState {
+    fn default() -> PlayerState {
+        PlayerState{
+            game_ref: Rc::new(RefCell::new(Default::default())),
+            myself: Arc::new(box dummy as Box<Player + Send + Share>),
+            other_players: DList::new(),
+            deck: Vec::new(),
+            discard: Vec::new(),
+            in_play: Vec::new(),
+            hand: Vec::new(),
+            actions: 0,
+            buys: 0,
+            buying_power: 0,
+        }
+    }
+}
+
 impl PlayerState {
     // hand_contains() returns true if and only if this player's hand
     // contains a copy of the given card.
@@ -777,7 +787,7 @@ impl PlayerState {
             Some(0) => return Err(EmptyPile(c)),
             Some(pile) => pile,
         };
-        self.with_mut_supply(|supply| supply.insert(c.name.to_string(), pile - 1));
+        self.with_mut_supply(|supply| supply.insert(c.name, pile - 1));
         self.discard.push(c);
         Ok(())
     }
@@ -790,7 +800,7 @@ impl PlayerState {
             Some(0) => return Err(EmptyPile(c)),
             Some(pile) => pile,
         };
-        self.with_mut_supply(|supply| supply.insert(c.name.to_string(), pile - 1));
+        self.with_mut_supply(|supply| supply.insert(c.name, pile - 1));
         self.deck.unshift(c);
         Ok(())
     }
@@ -803,7 +813,7 @@ impl PlayerState {
             Some(0) => return Err(EmptyPile(c)),
             Some(pile) => pile,
         };
-        self.with_mut_supply(|supply| supply.insert(c.name.to_string(), pile - 1));
+        self.with_mut_supply(|supply| supply.insert(c.name, pile - 1));
         self.hand.unshift(c);
         Ok(())
     }
@@ -814,7 +824,7 @@ impl PlayerState {
         if pile == 0 {
             Err(EmptyPile(cards::CURSE))
         } else {
-            self.with_mut_supply(|supply| supply.insert(cards::CURSE.name.to_string(), pile - 1));
+            self.with_mut_supply(|supply| supply.insert(cards::CURSE.name, pile - 1));
             self.discard.push(cards::CURSE);
             Ok(())
         }
@@ -824,7 +834,7 @@ impl PlayerState {
     // or None if it wasn't included in this game.
     fn count(&mut self, c: Card) -> Option<uint> {
         self.with_supply(|supply| {
-            match supply.find(&c.name.to_string()) {
+            match supply.find(&c.name) {
                 None => None,
                 Some(count) => Some(*count),
             }
@@ -842,28 +852,16 @@ impl PlayerState {
     // discard_hand() puts all of the cards the player's hand and in-play into the
     // discard pile.
     fn discard_hand(&mut self) {
-        loop {
-            match self.hand.shift() {
-                Some(c) => self.discard.push(c),
-                None => break,
-            }
-        }
-        loop {
-            match self.in_play.shift() {
-                Some(c) => self.discard.push(c),
-                None => break,
-            }
-        }
+        self.discard.push_all(self.in_play.as_slice());
+        self.discard.push_all(self.hand.as_slice());
+        self.in_play.clear();
+        self.hand.clear();
     }
 
     // discard_deck() puts all of the cards from the deck into the discard pile.
     fn discard_deck(&mut self) {
-        loop {
-            match self.deck.shift() {
-                Some(c) => self.discard.push(c),
-                None => break,
-            }
-        }
+        self.discard.push_all(self.deck.as_slice());
+        self.deck.clear();
     }
 
     // next_card() removes and returns the top card from the deck, shuffling
@@ -905,8 +903,8 @@ impl PlayerState {
             Some(c) => {
                 self.hand.push(c);
                 Some(c)
-            }
-            None => None
+            },
+            None => None,
         }
     }
 
@@ -914,11 +912,11 @@ impl PlayerState {
     // returning true if it was found, or false if it wasn't.
     fn remove_from_hand(&mut self, c: Card) -> bool {
         match self.hand.iter().enumerate().find(|&(_,&x)| x == c) {
-            None => false,
             Some((i,_)) => {
                 self.hand.remove(i);
                 true
-            }
+            },
+            None => false,
         }
     }
 
@@ -950,12 +948,12 @@ impl PlayerState {
     // currently be in play.
     fn trash_from_play(&mut self, c: Card) -> Result {
         match self.in_play.iter().enumerate().find(|&(_,&x)| x == c) {
-            None => Err(NotInHand(c)),
             Some((i,_)) => {
                 let card = self.in_play.remove(i).unwrap();
                 (*self.game_ref).borrow_mut().trash.push(card);
                 Ok(())
             },
+            None => Err(NotInHand(c)),
         }
     }
 
@@ -988,6 +986,12 @@ impl PlayerState {
 struct GameState {
     pub supply: Supply,
     pub trash: Vec<Card>,
+}
+
+impl std::default::Default for GameState {
+    fn default() -> GameState {
+        GameState{supply: HashMap::new(), trash: Vec::new()}
+    }
 }
 
 
@@ -1243,6 +1247,15 @@ struct PlayerResult {
 }
 
 
+#[allow(non_camel_case_types)]
+struct dummy;
+impl Player for dummy {
+    fn name(&self) -> &'static str { "Dummy" }
+    fn init(&self, _: &[Card]) -> fn() { dummy_turn }
+}
+
+fn dummy_turn() {}
+
 /* ------------------------ Aliases ------------------------ */
 
 /// A static pointer to a card definition.
@@ -1255,6 +1268,6 @@ type ActionFunc = fn(&[ActionInput]);
 
 type PlayerList = DList<Arc<Box<Player + Send + Share>>>;
 
-type Supply = HashMap<String, uint>;
+type Supply = HashMap<&'static str, uint>;
 
 type VictoryFunc = fn() -> int;

@@ -100,13 +100,13 @@ mod test {
         let trash = Vec::new();
 
         let mut supply: Supply = HashMap::new();
-        supply.insert(COPPER.name.to_string(),   30);
-        supply.insert(SILVER.name.to_string(),   30);
-        supply.insert(GOLD.name.to_string(),     30);
-        supply.insert(ESTATE.name.to_string(),   12);
-        supply.insert(DUCHY.name.to_string(),    12);
-        supply.insert(PROVINCE.name.to_string(), 12);
-        supply.insert(CURSE.name.to_string(),    30);
+        supply.insert(COPPER.name,   30);
+        supply.insert(SILVER.name,   30);
+        supply.insert(GOLD.name,     30);
+        supply.insert(ESTATE.name,   12);
+        supply.insert(DUCHY.name,    12);
+        supply.insert(PROVINCE.name, 12);
+        supply.insert(CURSE.name,    30);
 
         let game = GameState{supply: supply, trash: trash};
         let game_ref = Rc::new(RefCell::new(game));
@@ -146,6 +146,16 @@ mod test {
         }
 
         ::local_state_map.replace(Some(RefCell::new(player_state_map)));
+    }
+
+    pub fn set_active(i: uint) {
+        ::local_active_player.replace(Some(match i {
+            0 => "Alice",
+            1 => "Bob",
+            2 => "Charlie",
+            3 => "Delta",
+            _ => fail!("unknown player number: {}", i),
+        }));
     }
 
     pub fn assert_ok(r: Result) {
