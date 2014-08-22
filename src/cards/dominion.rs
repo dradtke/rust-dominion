@@ -111,7 +111,7 @@ fn do_bureaucrat(_: &[ActionInput]) {
                 fail!("Bureaucrat tried to choose {}, which wasn't an available option!", c.name);
             }
             other.remove_from_hand(c);
-            other.deck.unshift(c);
+            other.deck.insert(0, c);
         }
     });
 }
@@ -169,6 +169,12 @@ fn do_moneylender(_: &[ActionInput]) {
 
 /* ---------------------------- Remodel ---------------------------- */
 
+macro_rules! input(
+    ($inputs:ident, $is:ident) => (
+        *$inputs.iter().find(|x| x.$is()).unwrap_or_else(|| fail!("uh-oh!"))
+    )
+)
+
 pub static REMODEL: Card = &CardDef { name: "Remodel", cost: 4, types: &[Action(do_remodel)] };
 fn do_remodel(inputs: &[ActionInput]) {
     let to_trash = match inputs.iter().find(|i| i.is_trash()) {
@@ -208,7 +214,7 @@ fn do_spy(_: &[ActionInput]) {
             if other.myself.spy_should_discard(card, false) {
                 other.discard.push(card);
             } else {
-                other.deck.unshift(card);
+                other.deck.insert(0, card);
             }
         });
     });
@@ -219,7 +225,7 @@ fn do_spy(_: &[ActionInput]) {
             if player.myself.spy_should_discard(card, true) {
                 player.discard.push(card);
             } else {
-                player.deck.unshift(card);
+                player.deck.insert(0, card);
             }
         });
     });

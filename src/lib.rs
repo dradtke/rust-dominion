@@ -85,7 +85,7 @@ pub mod strat;
 macro_rules! dominion(
     ($($player:ident),+) => (
         dominion::play(vec![$(
-            box $player as Box<dominion::Player + Send + Share>,
+            box $player as Box<dominion::Player + Send + Sync>,
         )+]);
     )
 )
@@ -240,7 +240,7 @@ pub trait Player {
     fn thief_trash_and_keep(&self, options: &[Card]) -> (Card, bool) {
         let mut money = Vec::from_slice(options);
         money.sort_by(|m1, m2| m2.treasure_value().cmp(&m1.treasure_value()));
-        (*money.get(0), true)
+        (money[0], true)
     }
 }
 
@@ -365,7 +365,7 @@ pub fn number_of(c: Card) -> uint {
 }
 
 /// The entry point for playing a game, usually used via the shorthand `play!` macro.
-pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
+pub fn play(player_list: Vec<Box<Player + Send + Sync>>) {
     let mut term = stdout().unwrap();
 
     let args = os::args().iter().map(|x| x.to_string()).collect::<Vec<String>>();
@@ -379,7 +379,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
     let output_name = matches.opt_str("o");
 
     let n: uint = if !matches.free.is_empty() {
-        from_str(matches.free.get(0).as_slice()).unwrap()
+        from_str(matches.free[0].as_slice()).unwrap()
     } else {
         1000
     };
@@ -431,7 +431,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
                 deck.push_all_move(cards::ESTATE.create_copies(3));
                 rng.shuffle(deck.as_mut_slice());
 
-                let players = Rc::new(RefCell::new(DList::<Arc<Box<Player + Send + Share>>>::new()));
+                let players = Rc::new(RefCell::new(DList::<Arc<Box<Player + Send + Sync>>>::new()));
                 let game = Rc::new(RefCell::new(GameState{ supply: supply, trash: trash }));
                 let mut player_state_map = HashMap::<&'static str, PlayerState>::new();
                 let other_players = player_arcs.clone().move_iter().collect::<PlayerList>();
@@ -452,7 +452,7 @@ pub fn play(player_list: Vec<Box<Player + Send + Share>>) {
                             deck: deck.clone(),
                             ..Default::default()
                         });
-                        players.push_back(p);
+                        players.push(p);
                     }
                 }
 
@@ -617,7 +617,7 @@ fn play_game(players: Rc<RefCell<PlayerList>>) -> GameResult {
         take_turn(&(*player));
 
         let done = with_active_player(|p| is_game_finished(&(*p.game_ref.borrow()), empty_limit));
-        (*players).borrow_mut().push_back(player);
+        (*players).borrow_mut().push(player);
 
         if done {
             break;
@@ -643,12 +643,12 @@ fn play_game(players: Rc<RefCell<PlayerList>>) -> GameResult {
         }).collect::<Vec<PlayerResult>>();
     player_results.sort_by(|a, ref b| b.vp.cmp(&a.vp));
 
-    let highest_score = player_results.get(0).vp;
+    let highest_score = player_results[0].vp;
     let tie = player_results.iter().skip(1).any(|result| result.vp == highest_score);
 
     GameResult{
         tie: tie,
-        winner: player_results.get(0).name,
+        winner: player_results[0].name,
         player_results: player_results,
     }
 }
@@ -672,7 +672,7 @@ fn report(term: &mut Box<Terminal<WriterWrapper> + Send>, games: uint, total_gam
     term.flush();
 }
 
-fn take_turn(p: &Box<Player + Send + Share>) {
+fn take_turn(p: &Box<Player + Send + Sync>) {
     with_active_player(|player| {
         player.new_hand();
         player.actions = 1;
@@ -680,7 +680,7 @@ fn take_turn(p: &Box<Player + Send + Share>) {
         player.buying_power = 0;
     });
     let map = local_fn_map.get().unwrap();
-    (*map.get(&p.name()))();
+    (*map)[p.name()]();
     with_active_player(|player| {
         player.discard_hand();
     });
@@ -743,7 +743,7 @@ fn attack(f: |&mut PlayerState|) {
 // TODO: derive Default?
 struct PlayerState {
     game_ref: Rc<RefCell<GameState>>,
-    myself: Arc<Box<Player + Send + Share>>,
+    myself: Arc<Box<Player + Send + Sync>>,
     other_players: PlayerList,
 
     deck: Vec<Card>,
@@ -760,7 +760,7 @@ impl Default for PlayerState {
     fn default() -> PlayerState {
         PlayerState{
             game_ref: Rc::new(RefCell::new(Default::default())),
-            myself: Arc::new(box dummy as Box<Player + Send + Share>),
+            myself: Arc::new(box dummy as Box<Player + Send + Sync>),
             other_players: DList::new(),
             deck: Vec::new(),
             discard: Vec::new(),
@@ -801,7 +801,7 @@ impl PlayerState {
             Some(pile) => pile,
         };
         self.with_mut_supply(|supply| supply.insert(c.name, pile - 1));
-        self.deck.unshift(c);
+        self.deck.insert(0, c);
         Ok(())
     }
 
@@ -814,7 +814,7 @@ impl PlayerState {
             Some(pile) => pile,
         };
         self.with_mut_supply(|supply| supply.insert(c.name, pile - 1));
-        self.hand.unshift(c);
+        self.hand.insert(0, c);
         Ok(())
     }
 
@@ -871,7 +871,7 @@ impl PlayerState {
             mem::swap(&mut self.deck, &mut self.discard);
             task_rng().shuffle(self.deck.as_mut_slice());
         }
-        self.deck.shift()
+        self.deck.remove(0)
     }
 
     // next_n_cards() removes and returns the top n cards from the deck,
@@ -1266,7 +1266,7 @@ pub type Result = std::result::Result<(), Error>;
 
 type ActionFunc = fn(&[ActionInput]);
 
-type PlayerList = DList<Arc<Box<Player + Send + Share>>>;
+type PlayerList = DList<Arc<Box<Player + Send + Sync>>>;
 
 type Supply = HashMap<&'static str, uint>;
 

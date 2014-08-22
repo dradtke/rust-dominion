@@ -112,15 +112,15 @@ mod test {
         let game_ref = Rc::new(RefCell::new(game));
 
         let ai_arcs = ais.iter().enumerate().map(|(index, _)| match index {
-            0 => Arc::new(box Alice as Box<Player + Send + Share>),
-            1 => Arc::new(box Bob as Box<Player + Send + Share>),
-            2 => Arc::new(box Charlie as Box<Player + Send + Share>),
-            3 => Arc::new(box Delta as Box<Player + Send + Share>),
+            0 => Arc::new(box Alice as Box<Player + Send + Sync>),
+            1 => Arc::new(box Bob as Box<Player + Send + Sync>),
+            2 => Arc::new(box Charlie as Box<Player + Send + Sync>),
+            3 => Arc::new(box Delta as Box<Player + Send + Sync>),
             _ => fail!("Unsupported number of players!"),
-        }).collect::<Vec<Arc<Box<Player + Send + Share>>>>();
+        }).collect::<Vec<Arc<Box<Player + Send + Sync>>>>();
 
         let mut player_state_map = HashMap::<&'static str, PlayerState>::new();
-        ::local_active_player.replace(Some(ai_arcs.get(0).name()));
+        ::local_active_player.replace(Some(ai_arcs[0].name()));
 
         let other_players = ai_arcs.clone().move_iter().collect::<PlayerList>();
 
@@ -130,7 +130,7 @@ mod test {
                 other_players.rotate_backward();
             }
             other_players.pop_front();
-            let stub = ais.get(index);
+            let ref stub = ais[index];
             player_state_map.insert(ai.name(), PlayerState{
                 game_ref:      game_ref.clone(),
                 myself:        ai.clone(),
