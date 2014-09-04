@@ -2,6 +2,8 @@
 //! defining a new empty struct and implementing the `Player` trait, like so:
 //!
 //! ~~~
+//! #![feature(phase)]
+//!
 //! #[phase(plugin, link)]
 //! extern crate dominion;
 //!
@@ -9,15 +11,16 @@
 //! struct Me;
 //! impl dominion::Player for Me {
 //!     fn name(&self) -> &'static str { "Me" }
-//!     fn init(&self) -> fn() { my_turn }
+//!     fn init(&self, _: &[dominion::Card]) -> fn() { my_turn }
 //! }
 //!
 //! fn my_turn() {
 //!     dominion::strat::big_money();
 //! }
 //!
-//! // Define our opponent's lousy strategy using the `player!` macro.
-//! player!(Them, dominion::strat::big_money)
+//! // Define our opponent's lousy strategy using the `player!` macro,
+//! // which is shorthand for the above code.
+//! player!(Them using dominion::strat::big_money)
 //!
 //! fn main() {
 //!     dominion!(Me, Them);
@@ -112,11 +115,11 @@ macro_rules! kingdom(
 /// this macro provides a convenient way to define a new player.
 /// For example, this...
 ///
-/// ~~~
+/// ~~~ignore
 /// struct Me;
 /// impl dominion::Player for Me {
 ///     fn name(&self) -> &'static str { "Me" }
-///     fn init(&self) -> fn() { my_strategy }
+///     fn init(&self, _: &[dominion::Card]) -> fn() { my_strategy }
 /// }
 ///
 /// fn my_strategy() {
@@ -126,8 +129,8 @@ macro_rules! kingdom(
 ///
 /// ...can be shortened to this:
 ///
-/// ~~~
-/// player!(Me, my_strategy)
+/// ~~~ignore
+/// player!(Me using my_strategy)
 ///
 /// fn my_stategy() {
 ///     // Do our awesome custom strategy.
@@ -510,8 +513,8 @@ pub fn play_card(c: Card) -> Result {
 ///
 /// This method returns an InvalidPlay error if either
 ///
-///     (a) the requested card is not in the player's hand, or
-///     (b) the card cannot be played, e.g. Province.
+///   1. the requested card is not in the player's hand, or
+///   2. the card cannot be played, e.g. Province.
 ///
 /// Other errors may occur if there are not enough actions or buys, and once a Money
 /// card is played, then the player's action count is set to 0.
