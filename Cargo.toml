@@ -5,4 +5,4 @@ authors = [ "damienradtke@gmail.com" ]
 
 [[lib]]
 name = "dominion"
-path = "dominion/mod.rs"
+path = "src/lib.rs"

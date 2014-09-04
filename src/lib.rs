@@ -279,21 +279,20 @@ pub fn buy(c: Card) -> Result {
 /// Returns either the number available for a given card, or None
 /// if the card wasn't available in this game.
 pub fn count(c: Card) -> Option<uint> {
-    with_active_player(|player| player.count(c))
+    with_active_player(|x| x.count(c))
 }
 
 /// Get the number of actions left for the current player.
 pub fn get_action_count() -> uint {
-    with_active_player(|player| player.actions)
+    with_active_player(|x| x.actions)
 }
 
 /// Get a count of the total available money currently in the player's hand.
 pub fn get_available_money() -> uint {
-    with_active_player(|player| {
-        player.hand.iter()
+    with_active_player(|x| x.hand.iter()
         .filter(|&c| c.is_money())
         .fold(0, |a, &b| a + b.treasure_value())
-    })
+    )
 }
 
 /// Get the current available buying power.
@@ -301,56 +300,52 @@ pub fn get_available_money() -> uint {
 /// You must have played at least one Money card or Action card providing
 /// buying power for this value to be higher than 0.
 pub fn get_buying_power() -> uint {
-    with_active_player(|player| player.buying_power)
+    with_active_player(|x| x.buying_power)
 }
 
 /// Get a copy of the player's discard pile.
 pub fn get_discard() -> Vec<Card> {
-    with_active_player(|player| player.discard.clone())
+    with_active_player(|x| x.discard.clone())
 }
 
 /// Get a copy of the player's hand.
 pub fn get_hand() -> Vec<Card> {
-    with_active_player(|player| player.hand.clone())
+    with_active_player(|x| x.hand.clone())
 }
 
 /// Get the number of cards in the player's hand.
 pub fn get_hand_size() -> uint {
-    with_active_player(|player| player.hand.len())
+    with_active_player(|x| x.hand.len())
 }
 
 /// Get the total point value from all victory
 /// and curse cards in the player's deck, hand, and discard.
 pub fn get_total_points() -> int {
-    with_active_player(|player| {
-        player.deck.iter()
-        .chain(player.discard.iter())
-        .chain(player.hand.iter())
-        .filter(|&c| c.is_victory() || c.is_curse())
-        .fold(0, |a, &b| a + b.victory_points())
-    })
+    with_active_player(|x|
+        x.deck.iter().chain(x.discard.iter()).chain(x.hand.iter())
+            .filter(|&c| c.is_victory() || c.is_curse())
+            .fold(0, |a, &b| a + b.victory_points())
+    )
 }
 
 /// Get a clone of the game's trash pile.
 pub fn get_trash() -> Vec<Card> {
-    with_active_player(|player| (*player.game_ref).borrow().trash.clone())
+    with_active_player(|x| (*x.game_ref).borrow().trash.clone())
 }
 
 /// Returns true if and only if the player's hand contains
 /// the specified card.
 pub fn hand_contains(c: Card) -> bool {
-    with_active_player(|player| player.hand_contains(c))
+    with_active_player(|x| x.hand_contains(c))
 }
 
 /// Returns true if and only if the player has the provided card in their
 /// hand, deck, discard, or in play.
 pub fn has(c: Card) -> bool {
-    with_active_player(|player| {
-        player.hand.iter().any(|&x| x == c)
-        || player.deck.iter().any(|&x| x == c)
-        || player.discard.iter().any(|&x| x == c)
-        || player.in_play.iter().any(|&x| x == c)
-    })
+    with_active_player(|x|
+        x.hand.iter().chain(x.deck.iter()).chain(x.discard.iter()).chain(x.in_play.iter())
+            .any(|&y| y == c)
+    )
 }
 
 /// Returns the number of instances of the provided card
@@ -681,9 +676,7 @@ fn take_turn(p: &Box<Player + Send + Sync>) {
     });
     let map = local_fn_map.get().unwrap();
     (*map)[p.name()]();
-    with_active_player(|player| {
-        player.discard_hand();
-    });
+    with_active_player(|x| x.discard_hand());
 }
 
 fn get_empty_limit(n: uint) -> uint {
@@ -716,7 +709,7 @@ fn with_active_player<T>(f: |&mut PlayerState| -> T) -> T {
 }
 
 fn with_other_players(f: |&mut PlayerState|) {
-    let others = with_active_player(|player| player.other_players.clone());
+    let others = with_active_player(|x| x.other_players.clone());
     let states_ref = local_state_map.get().unwrap();
     let mut states = states_ref.borrow_mut();
     for other in others.iter() {
@@ -725,7 +718,7 @@ fn with_other_players(f: |&mut PlayerState|) {
 }
 
 fn attack(f: |&mut PlayerState|) {
-    let others = with_active_player(|player| player.other_players.clone());
+    let others = with_active_player(|x| x.other_players.clone());
     let states_ref = local_state_map.get().unwrap();
     let mut states = states_ref.borrow_mut();
     for other in others.iter() {

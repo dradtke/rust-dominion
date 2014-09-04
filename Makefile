@@ -1,3 +1,4 @@
+# Makefile can be used if Cargo isn't available.
 
 CFLAGS = -g
 

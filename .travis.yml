@@ -1,11 +1,1 @@
-before_install:
-    - yes | sudo add-apt-repository ppa:hansjorg/rust
-    - sudo apt-get update
-
-install:
-    - sudo apt-get install rust-nightly
-
-script:
-    - rustc src/lib.rs
-    - rustc --test -o test src/lib.rs
-    - ./test
+language: rust
