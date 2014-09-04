@@ -3,6 +3,6 @@ name = "dominion"
 version = "0.1.0"
 authors = [ "damienradtke@gmail.com" ]
 
-[[lib]]
+[lib]
 name = "dominion"
 path = "src/lib.rs"
